@@ -10,6 +10,9 @@ class AppSettings {
   final bool animationEnabled;
   final bool darkMode;
   final bool dynamicColors;
+  final bool onboardingCompleted;
+  final String userName;
+  final String belovedName;
 
   const AppSettings({
     this.holdDurationMs = AppConstants.defaultHoldDurationMs,
@@ -17,6 +20,9 @@ class AppSettings {
     this.animationEnabled = AppConstants.defaultAnimationEnabled,
     this.darkMode = AppConstants.defaultDarkMode,
     this.dynamicColors = AppConstants.defaultDynamicColors,
+    this.onboardingCompleted = false,
+    this.userName = '',
+    this.belovedName = '',
   });
 
   AppSettings copyWith({
@@ -25,6 +31,9 @@ class AppSettings {
     bool? animationEnabled,
     bool? darkMode,
     bool? dynamicColors,
+    bool? onboardingCompleted,
+    String? userName,
+    String? belovedName,
   }) {
     return AppSettings(
       holdDurationMs: holdDurationMs ?? this.holdDurationMs,
@@ -32,6 +41,9 @@ class AppSettings {
       animationEnabled: animationEnabled ?? this.animationEnabled,
       darkMode: darkMode ?? this.darkMode,
       dynamicColors: dynamicColors ?? this.dynamicColors,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      userName: userName ?? this.userName,
+      belovedName: belovedName ?? this.belovedName,
     );
   }
 }
@@ -51,6 +63,9 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
       animationEnabled: _hive.getSetting('animationEnabled', AppConstants.defaultAnimationEnabled),
       darkMode: _hive.getSetting('darkMode', AppConstants.defaultDarkMode),
       dynamicColors: _hive.getSetting('dynamicColors', AppConstants.defaultDynamicColors),
+      onboardingCompleted: _hive.getSetting('onboardingCompleted', false),
+      userName: _hive.getSetting('userName', ''),
+      belovedName: _hive.getSetting('belovedName', ''),
     );
   }
 
@@ -80,9 +95,23 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     state = state.copyWith(dynamicColors: value);
   }
 
+  Future<void> completeOnboarding(String user, String beloved) async {
+    await _hive.setSetting('userName', user);
+    await _hive.setSetting('belovedName', beloved);
+    await _hive.setSetting('onboardingCompleted', true);
+    state = state.copyWith(
+      userName: user,
+      belovedName: beloved,
+      onboardingCompleted: true,
+    );
+  }
+
   Future<void> resetAll() async {
     await _hive.clearStatistics();
-    state = const AppSettings();
+    await _hive.setSetting('onboardingCompleted', false);
+    await _hive.setSetting('userName', '');
+    await _hive.setSetting('belovedName', '');
+    state = const AppSettings(onboardingCompleted: false);
   }
 }
 

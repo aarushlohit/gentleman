@@ -16,6 +16,7 @@ import 'package:gentleman/core/services/permission_service.dart';
 import 'package:gentleman/core/services/platform_channel_service.dart';
 import 'package:gentleman/core/services/hive_service.dart';
 import 'package:gentleman/core/services/settings_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -40,6 +41,7 @@ void main() {
   late Directory tempDir;
 
   setUpAll(() async {
+    GoogleFonts.config.allowRuntimeFetching = false;
     tempDir = await Directory.systemTemp.createTemp('gentleman_test_');
     PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
 
@@ -88,8 +90,8 @@ void main() {
       ),
     );
 
-    // One pump is enough for the initial frame.
-    await tester.pump(Duration.zero);
-    expect(find.text('Gentleman'), findsWidgets);
+    // Pump and settle to let all initial routing transitions and animations finish.
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Gentleman'), findsWidgets);
   });
 }

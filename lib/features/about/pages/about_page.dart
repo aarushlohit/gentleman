@@ -43,7 +43,104 @@ class AboutPage extends ConsumerWidget {
                   color: cs.onSurfaceVariant,
                   height: 1.5,
                 )),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
+          
+          // About the Author Card
+          Card(
+            clipBehavior: Clip.antiAlias,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: cs.primary.withValues(alpha: 0.15), width: 1.5),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    cs.primary.withValues(alpha: 0.08),
+                    cs.primary.withValues(alpha: 0.01),
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(LucideIcons.terminal, color: cs.primary, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'About the Author',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          Text(
+                            'Lohit A.K.A @aarushlohit',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Hi, I\'m Lohit A.K.A (Aarushlohit). Author | lyricist | Coder | hacker not really but cybersec researcher !!! | spotify artist | @aarushlohit github and aarushlohit_01 instagram\n\n'
+                    'I\'m a developer who enjoys building practical software that solves real problems.\n\n'
+                    'I\'m also an overthinker.\n\n'
+                    'One accidental video call turned into several minutes of wondering what the other person thought of me. Instead of accepting it as "just one of those things," I decided to build a solution.\n\n'
+                    'That\'s how Gentleman was born.\n\n'
+                    'I believe the best software often comes from small everyday frustrations. If a tiny moment of embarrassment can inspire a tool that helps thousands of people, then it was probably worth it.\n\n'
+                    'If you\'d like to contribute, report bugs, or suggest new ideas, you\'re always welcome.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                          fontSize: 13,
+                        ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: () => _launchUrl(context, 'https://github.com/aarushlohit'),
+                        icon: const Icon(LucideIcons.github),
+                        tooltip: 'GitHub',
+                      ),
+                      IconButton.filledTonal(
+                        onPressed: () => _launchUrl(context, 'https://instagram.com/aarushlohit_01'),
+                        icon: const Icon(LucideIcons.instagram),
+                        tooltip: 'Instagram',
+                      ),
+                      IconButton.filledTonal(
+                        onPressed: () => _launchUrl(context, 'https://open.spotify.com/'), //spotify artist generic link
+                        icon: const Icon(LucideIcons.music),
+                        tooltip: 'Spotify',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(duration: 400.ms),
+          const SizedBox(height: 24),
           Card(
             child: Column(
               children: [

@@ -35,10 +35,21 @@ class AppLogo extends StatelessWidget {
               ]
             : null,
       ),
-      child: Icon(
-        LucideIcons.shieldCheck,
-        size: size * 0.52,
-        color: cs.onPrimary,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.28),
+        child: Image.asset(
+          'assets/gentleman.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              LucideIcons.shieldCheck,
+              size: size * 0.52,
+              color: cs.onPrimary,
+            );
+          },
+        ),
       ),
     );
   }

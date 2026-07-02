@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:io' as io;
 import 'app_colors.dart';
 
 /// App-wide Material 3 themes.
@@ -26,10 +28,11 @@ abstract final class AppTheme {
           onError: AppColors.lightOnError,
         );
 
-    return ThemeData(
-      useMaterial3: true,
+    final baseLight = ThemeData.light(useMaterial3: true);
+    final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
+    return baseLight.copyWith(
       colorScheme: scheme,
-      brightness: Brightness.light,
+      textTheme: isTest ? baseLight.textTheme : GoogleFonts.plusJakartaSansTextTheme(baseLight.textTheme),
       scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
         centerTitle: true,
@@ -104,10 +107,11 @@ abstract final class AppTheme {
           onError: AppColors.darkOnError,
         );
 
-    return ThemeData(
-      useMaterial3: true,
+    final baseDark = ThemeData.dark(useMaterial3: true);
+    final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
+    return baseDark.copyWith(
       colorScheme: scheme,
-      brightness: Brightness.dark,
+      textTheme: isTest ? baseDark.textTheme : GoogleFonts.plusJakartaSansTextTheme(baseDark.textTheme),
       scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
         centerTitle: true,

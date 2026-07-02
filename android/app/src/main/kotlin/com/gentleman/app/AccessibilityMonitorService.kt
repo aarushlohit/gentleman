@@ -12,6 +12,70 @@ class AccessibilityMonitorService : AccessibilityService() {
         const val EXTRA_INTERACTION = "interaction"
     }
 
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var sarcasmRunnable: Runnable? = null
+
+    private val sarcasmMessages = listOf(
+        "Still not texting them? Good. Gentleman is keeping you safe.",
+        "Your beloved one's notification drawer is silent. You're welcome.",
+        "We just intercepted 0 accidental video calls in the last hour. Success!",
+        "Gentleman check-in: Your dignity remains fully intact.",
+        "Did you feel an urge to make a random video call? Don't. We've got you covered.",
+        "Your fingers are behaving. Keep up the good work.",
+        "Accidental call avoided in alternate dimensions. Sleep easy.",
+        "Gentleman: Saving you from moving to a remote island out of embarrassment."
+    )
+
+    override fun onCreate() {
+        super.onCreate()
+        createSarcasmNotificationChannel()
+        scheduleSarcasmNotification()
+    }
+
+    override fun onDestroy() {
+        sarcasmRunnable?.let { handler.removeCallbacks(it) }
+        super.onDestroy()
+    }
+
+    private fun createSarcasmNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                "sarcasm_notifications",
+                "Gentleman Alerts",
+                android.app.NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Friendly hourly sarcasm checks to keep your dignity high."
+            }
+            val nm = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+    }
+
+    private fun scheduleSarcasmNotification() {
+        sarcasmRunnable = object : Runnable {
+            override fun run() {
+                sendSarcasmNotification()
+                // Run every 1 hour (3600000 ms)
+                handler.postDelayed(this, 3600000L)
+            }
+        }
+        // Start the first one after 1 hour
+        handler.postDelayed(sarcasmRunnable!!, 3600000L)
+    }
+
+    private fun sendSarcasmNotification() {
+        val message = sarcasmMessages.random()
+        val builder = androidx.core.app.NotificationCompat.Builder(this, "sarcasm_notifications")
+            .setContentTitle("Gentleman Shield")
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+
+        val nm = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        nm.notify((System.currentTimeMillis() % 100000).toInt(), builder.build())
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
