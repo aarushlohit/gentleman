@@ -142,7 +142,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               child: SectionHeader(
                 title: 'Today\'s Stats',
                 actionText: 'Details',
-                onAction: () => context.push(RoutePaths.statistics),
+                onAction: () => context.go(RoutePaths.statistics),
               ),
             ),
             SliverToBoxAdapter(
