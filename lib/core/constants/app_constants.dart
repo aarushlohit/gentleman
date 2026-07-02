@@ -40,6 +40,7 @@ abstract final class AppConstants {
   static const String methodOpenOverlaySettings = 'openOverlaySettings';
   static const String methodOpenBatterySettings = 'openBatterySettings';
   static const String methodIsServiceRunning = 'isServiceRunning';
+  static const String methodOnProtectionEvent = 'onProtectionEvent';
 
   // ─── Hold Duration Options ───
   static const List<int> holdDurationOptions = [500, 1000, 1500, 2000];
