@@ -34,8 +34,19 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
-        registerReceiver(protectionEventReceiver, IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT"))
-
+        if (android.os.Build.VERSION.SDK_INT >= 33) { // Build.VERSION_CODES.TIRAMISU
+            registerReceiver(
+                protectionEventReceiver,
+                IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(
+                protectionEventReceiver,
+                IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT")
+            )
+        }
+ 
         // Listen for overlay decisions and forward to Flutter as well.
         protectionDecisionReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -50,7 +61,18 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
-        registerReceiver(protectionDecisionReceiver, IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION"))
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(
+                protectionDecisionReceiver,
+                IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(
+                protectionDecisionReceiver,
+                IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION")
+            )
+        }
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
