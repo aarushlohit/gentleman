@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/route_constants.dart';
+import '../../../core/models/protection_event.dart';
+import '../../../core/services/hive_service.dart';
 import '../../../core/services/settings_provider.dart';
 import '../../../core/services/statistics_provider.dart';
 
@@ -102,11 +107,7 @@ class SettingsPage extends ConsumerWidget {
                   leading: const Icon(LucideIcons.fileDown),
                   title: const Text('Export Logs'),
                   subtitle: const Text('Save protection log as CSV'),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Export coming soon')),
-                    );
-                  },
+                  onTap: () => _exportCsv(context, ref),
                 ),
               ],
             ),
@@ -127,6 +128,53 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
+    try {
+      final hive = ref.read(hiveServiceProvider);
+      final events = hive.getAllEvents();
+
+      if (events.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No events to export')),
+          );
+        }
+        return;
+      }
+
+      // Build CSV content
+      final buffer = StringBuffer();
+      buffer.writeln('timestamp,app,package,call_type,result,hold_duration_ms');
+      for (final ProtectionEvent e in events) {
+        buffer.writeln(
+          '${e.timestamp.toIso8601String()},'
+          '"${e.appName}",'
+          '"${e.packageName}",'
+          '${e.interactionLabel},'
+          '${e.result.name},'
+          '${e.holdDurationMs}',
+        );
+      }
+
+      // Write to temp file
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/gentleman_logs.csv');
+      await file.writeAsString(buffer.toString());
+
+      // Share via share_plus
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'Gentleman Protection Logs',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
   }
 
   void _confirmReset(BuildContext context, WidgetRef ref) {
