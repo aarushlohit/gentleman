@@ -1,10 +1,39 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
+import 'dart:async';
+import '../models/protection_event.dart' as models;
 
 /// Platform channel bridge to native Android.
 class PlatformChannelService {
   static const _channel = MethodChannel(AppConstants.channelName);
+
+  final StreamController<models.ProtectionEvent> _eventController = StreamController.broadcast();
+
+  PlatformChannelService() {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == AppConstants.methodOnProtectionEvent) {
+        try {
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          if (args != null) {
+            final pkg = args['package'] as String? ?? '';
+            final interaction = args['interaction'] as String? ?? 'voice';
+            final interactionType = interaction == 'video' ? models.InteractionType.videoCall : models.InteractionType.voiceCall;
+            final event = models.ProtectionEvent(
+              packageName: pkg,
+              interactionType: interactionType,
+              result: models.ProtectionResult.allowed,
+              timestamp: DateTime.now(),
+              holdDurationMs: 0,
+            );
+            _eventController.add(event);
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  Stream<models.ProtectionEvent> get onProtectionEvent => _eventController.stream;
 
   Future<bool> isAccessibilityEnabled() async {
     try {
