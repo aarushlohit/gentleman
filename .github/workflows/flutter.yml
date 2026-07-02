@@ -1,0 +1,22 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.0'
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze
+      - name: Run tests
+        run: flutter test --coverage
