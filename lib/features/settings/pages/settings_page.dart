@@ -24,6 +24,7 @@ class SettingsPage extends ConsumerWidget {
           _SectionCard(
             title: 'Hold Duration',
             subtitle: 'How long to hold the call button before it registers',
+            delayMs: 0,
             child: Column(
               children: [
                 SegmentedButton<int>(
@@ -42,11 +43,11 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ],
             ),
-            delayMs: 0,
           ),
           const SizedBox(height: 12),
           _SectionCard(
             title: 'Protection Features',
+            delayMs: 80,
             child: Column(
               children: [
                 SwitchListTile(
@@ -81,11 +82,11 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ],
             ),
-            delayMs: 80,
           ),
           const SizedBox(height: 12),
           _SectionCard(
             title: 'Data',
+            delayMs: 160,
             child: Column(
               children: [
                 ListTile(
@@ -109,11 +110,11 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ],
             ),
-            delayMs: 160,
           ),
           const SizedBox(height: 12),
           _SectionCard(
             title: 'About',
+            delayMs: 240,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(LucideIcons.info),
@@ -122,7 +123,6 @@ class SettingsPage extends ConsumerWidget {
               trailing: const Icon(LucideIcons.chevronRight),
               onTap: () => context.push(RoutePaths.about),
             ),
-            delayMs: 240,
           ),
         ],
       ),
