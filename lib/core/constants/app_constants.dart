@@ -42,6 +42,7 @@ abstract final class AppConstants {
   static const String methodIsServiceRunning = 'isServiceRunning';
   static const String methodOnProtectionEvent = 'onProtectionEvent';
   static const String methodOnProtectionDecision = 'onProtectionDecision';
+  static const String methodIsBatteryOptimizationDisabled = 'isBatteryOptimizationDisabled';
 
   // ─── Hold Duration Options ───
   static const List<int> holdDurationOptions = [500, 1000, 1500, 2000];

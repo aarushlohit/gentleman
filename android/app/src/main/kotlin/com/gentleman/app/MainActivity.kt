@@ -77,6 +77,11 @@ class MainActivity : FlutterActivity() {
                     val enabled = isOurAccessibilityServiceEnabled()
                     result.success(enabled)
                 }
+                "isBatteryOptimizationDisabled" -> {
+                    val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+                    val ignored = pm.isIgnoringBatteryOptimizations(packageName)
+                    result.success(ignored)
+                }
                 "getForegroundApp" -> {
                     val pkg = getForegroundAppPackage()
                     result.success(pkg)

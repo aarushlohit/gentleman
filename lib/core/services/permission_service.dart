@@ -6,12 +6,14 @@ import 'platform_channel_service.dart';
 class PermissionState {
   final bool accessibilityEnabled;
   final bool overlayEnabled;
+  final bool batteryOptimizationDisabled;
   final bool serviceRunning;
   final bool isLoading;
 
   const PermissionState({
     this.accessibilityEnabled = false,
     this.overlayEnabled = false,
+    this.batteryOptimizationDisabled = false,
     this.serviceRunning = false,
     this.isLoading = true,
   });
@@ -21,12 +23,14 @@ class PermissionState {
   PermissionState copyWith({
     bool? accessibilityEnabled,
     bool? overlayEnabled,
+    bool? batteryOptimizationDisabled,
     bool? serviceRunning,
     bool? isLoading,
   }) {
     return PermissionState(
       accessibilityEnabled: accessibilityEnabled ?? this.accessibilityEnabled,
       overlayEnabled: overlayEnabled ?? this.overlayEnabled,
+      batteryOptimizationDisabled: batteryOptimizationDisabled ?? this.batteryOptimizationDisabled,
       serviceRunning: serviceRunning ?? this.serviceRunning,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -44,11 +48,13 @@ class PermissionNotifier extends StateNotifier<PermissionState> {
       _platform.isAccessibilityEnabled(),
       _platform.isOverlayEnabled(),
       _platform.isServiceRunning(),
+      _platform.isBatteryOptimizationDisabled(),
     ]);
     state = PermissionState(
       accessibilityEnabled: results[0],
       overlayEnabled: results[1],
       serviceRunning: results[2],
+      batteryOptimizationDisabled: results[3],
       isLoading: false,
     );
   }

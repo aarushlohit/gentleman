@@ -62,9 +62,11 @@ class _PermissionsPageState extends ConsumerState<PermissionsPage> {
             description:
                 'Disabling battery optimization helps Gentleman stay active in the background '
                 'so it can always protect you when needed.',
-            granted: false,
-            actionLabel: 'Open Settings',
-            onAction: () => ref.read(permissionProvider.notifier).openBatterySettings(),
+            granted: permissions.batteryOptimizationDisabled,
+            actionLabel: permissions.batteryOptimizationDisabled ? 'Granted' : 'Open Settings',
+            onAction: permissions.isLoading
+                ? null
+                : () => ref.read(permissionProvider.notifier).openBatterySettings(),
             delayMs: 200,
           ),
           const SizedBox(height: 24),

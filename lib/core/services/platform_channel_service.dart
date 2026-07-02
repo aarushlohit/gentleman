@@ -96,6 +96,15 @@ class PlatformChannelService {
     }
   }
 
+  Future<bool> isBatteryOptimizationDisabled() async {
+    try {
+      final result = await _channel.invokeMethod<bool>(AppConstants.methodIsBatteryOptimizationDisabled);
+      return result ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   Future<bool> isServiceRunning() async {
     try {
       final result = await _channel.invokeMethod<bool>(AppConstants.methodIsServiceRunning);
