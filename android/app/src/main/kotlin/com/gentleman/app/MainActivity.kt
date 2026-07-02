@@ -4,13 +4,35 @@ import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.gentleman/protection"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+
+        // Register a receiver to get protection events from the AccessibilityService and forward to Dart.
+        val filter = IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT")
+        registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val pkg = intent.getStringExtra("package")
+                val interaction = intent.getStringExtra("interaction")
+                val payload = mapOf("package" to pkg, "interaction" to interaction)
+                try {
+                    methodChannel.invokeMethod("onProtectionEvent", payload)
+                } catch (e: Exception) {
+                    // ignore invocation failures
+                }
+            }
+        }, filter)
+
+        methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isAccessibilityEnabled" -> {
                     val am = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
