@@ -69,7 +69,11 @@ class AboutPage extends ConsumerWidget {
                 _AboutTile(
                   icon: LucideIcons.users,
                   label: 'Open Source Notices',
-                  onTap: () {},
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Gentleman',
+                    applicationVersion: AppConstants.appVersion,
+                  ),
                 ),
               ],
             ),
