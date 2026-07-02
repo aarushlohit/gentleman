@@ -32,6 +32,22 @@ class MainActivity : FlutterActivity() {
             }
         }, filter)
 
+        // Listen for overlay decisions and forward to Flutter as well.
+        val decisionFilter = IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION")
+        registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val pkg = intent.getStringExtra(OverlayService.EXTRA_PACKAGE)
+                val interaction = intent.getStringExtra(OverlayService.EXTRA_INTERACTION)
+                val result = intent.getStringExtra(OverlayService.EXTRA_RESULT)
+                val payload = mapOf("package" to pkg, "interaction" to interaction, "result" to result)
+                try {
+                    methodChannel.invokeMethod("onProtectionDecision", payload)
+                } catch (e: Exception) {
+                }
+            }
+        }, decisionFilter)
+
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isAccessibilityEnabled" -> {
