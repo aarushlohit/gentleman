@@ -10,6 +10,7 @@ class StatisticsState {
   final int instagramCount;
   final double avgHoldDuration;
   final ProtectionEvent? lastEvent;
+  final List<ProtectionEvent> recentEvents;
 
   const StatisticsState({
     this.todayCount = 0,
@@ -19,6 +20,7 @@ class StatisticsState {
     this.instagramCount = 0,
     this.avgHoldDuration = 0,
     this.lastEvent,
+    this.recentEvents = const [],
   });
 }
 
@@ -43,6 +45,10 @@ class StatisticsNotifier extends StateNotifier<StatisticsState> {
       avgHold = blocked.map((e) => e.holdDurationMs).reduce((a, b) => a + b) / blocked.length;
     }
 
+    // Sort events newest-first for the history list.
+    final recent = List<ProtectionEvent>.from(all)
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
     state = StatisticsState(
       todayCount: today.where((e) => e.result == ProtectionResult.blocked).length,
       weekCount: week.where((e) => e.result == ProtectionResult.blocked).length,
@@ -51,8 +57,10 @@ class StatisticsNotifier extends StateNotifier<StatisticsState> {
       instagramCount: instagramBlocked,
       avgHoldDuration: avgHold,
       lastEvent: all.isNotEmpty ? all.last : null,
+      recentEvents: recent,
     );
   }
+
 
   Future<void> recordEvent(ProtectionEvent event) async {
     await _hive.addProtectionEvent(event);
