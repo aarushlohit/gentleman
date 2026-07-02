@@ -13,10 +13,12 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isAccessibilityEnabled" -> {
-                    result.success(false)
+                    val am = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+                    result.success(am.isEnabled)
                 }
                 "isOverlayEnabled" -> {
-                    result.success(false)
+                    val allowed = android.provider.Settings.canDrawOverlays(this)
+                    result.success(allowed)
                 }
                 "openAccessibilitySettings" -> {
                     val intent = android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
@@ -33,8 +35,55 @@ class MainActivity : FlutterActivity() {
                     startActivity(android.content.Intent(intent))
                     result.success(null)
                 }
+                "isServiceRunning" -> {
+                    val enabled = isOurAccessibilityServiceEnabled()
+                    result.success(enabled)
+                }
+                "getForegroundApp" -> {
+                    val pkg = getForegroundAppPackage()
+                    result.success(pkg)
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun isOurAccessibilityServiceEnabled(): Boolean {
+        try {
+            val enabledServices = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            if (enabledServices != null) {
+                val services = enabledServices.split(":")
+                for (s in services) {
+                    if (s.contains("com.gentleman.app/AccessibilityMonitorService")) return true
+                }
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+        return false
+    }
+
+    private fun getForegroundAppPackage(): String? {
+        try {
+            val usm = getSystemService(USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+            val endTime = System.currentTimeMillis()
+            val beginTime = endTime - 1000 * 60
+            val usageStats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, beginTime, endTime)
+            if (usageStats != null && usageStats.isNotEmpty()) {
+                val recent = usageStats.maxByOrNull { it.lastTimeUsed }
+                return recent?.packageName
+            }
+        } catch (e: Exception) {
+            // Fall back to ActivityManager
+            try {
+                val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+                val tasks = am.runningAppProcesses
+                if (tasks != null && tasks.isNotEmpty()) {
+                    return tasks[0].processName
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return null
     }
 }
