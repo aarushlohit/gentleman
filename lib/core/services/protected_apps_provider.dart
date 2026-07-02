@@ -42,6 +42,28 @@ class ProtectedAppsNotifier extends StateNotifier<List<ProtectedApp>> {
     _load();
   }
 
+  Future<void> enableAll() async {
+    final apps = _hive.getAllRules();
+    for (final app in apps) {
+      if (!app.isEnabled) {
+        final updated = app.copyWith(status: AppProtectionStatus.enabled);
+        await _hive.saveRule(updated);
+      }
+    }
+    _load();
+  }
+
+  Future<void> disableAll() async {
+    final apps = _hive.getAllRules();
+    for (final app in apps) {
+      if (app.isEnabled) {
+        final updated = app.copyWith(status: AppProtectionStatus.disabled);
+        await _hive.saveRule(updated);
+      }
+    }
+    _load();
+  }
+
   ProtectedApp? getApp(String packageName) {
     return _hive.getRule(packageName);
   }

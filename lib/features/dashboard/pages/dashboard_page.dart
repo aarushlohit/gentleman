@@ -122,7 +122,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ],
                         const SizedBox(height: 20),
                         FilledButton.icon(
-                          onPressed: () {},
+                          onPressed: () {
+                            if (allEnabled) {
+                              ref.read(protectedAppsProvider.notifier).disableAll();
+                            } else {
+                              ref.read(protectedAppsProvider.notifier).enableAll();
+                            }
+                          },
                           icon: Icon(allEnabled ? LucideIcons.shieldOff : LucideIcons.shield),
                           label: Text(allEnabled ? 'Disable All' : 'Enable All'),
                         ),
