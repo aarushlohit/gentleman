@@ -52,12 +52,12 @@ class ProtectedApp extends HiveObject {
     );
   }
 
-  static ProtectedApp whatsapp() => const ProtectedApp(
+  static ProtectedApp whatsapp() => ProtectedApp(
         packageName: 'com.whatsapp',
         displayName: 'WhatsApp',
       );
 
-  static ProtectedApp instagram() => const ProtectedApp(
+  static ProtectedApp instagram() => ProtectedApp(
         packageName: 'com.instagram.android',
         displayName: 'Instagram',
       );

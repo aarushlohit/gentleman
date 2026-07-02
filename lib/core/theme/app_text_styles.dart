@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// App text styles built on Google Sans with warm, readable defaults.
 abstract final class AppTextStyles {
-  static TextStyle _base(BuildContext context) => GoogleFonts.googleSans(
+  static TextStyle _base(BuildContext context) => GoogleFonts.getFont(
+        'Google Sans',
         color: Theme.of(context).colorScheme.onSurface,
       );
 

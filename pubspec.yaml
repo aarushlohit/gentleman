@@ -58,7 +58,6 @@ flutter:
 
   assets:
     - assets/images/logo.png
-    - assets/images/gentleman.png
 
   fonts:
     - family: GoogleSans

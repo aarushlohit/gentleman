@@ -2,8 +2,12 @@
 abstract final class AppConstants {
   static const String appName = 'Gentleman';
   static const String appTagline = 'Protecting your dignity, one tap at a time.';
+  static const String appDescription = 'Gentleman prevents accidental voice and video calls in WhatsApp and Instagram. '
+      'It uses Accessibility Service to detect call buttons when they appear and requires you to hold them '
+      'before the call goes through.';
   static const String appVersion = '1.0.0';
   static const String appBuildNumber = '1';
+  static const String copyright = '© 2025 Gentleman. All rights reserved.';
 
   static const String githubUrl = 'https://github.com/aarush/gentleman';
   static const String licenseUrl = 'https://github.com/aarush/gentleman/blob/main/LICENSE';

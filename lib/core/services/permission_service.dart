@@ -35,9 +35,8 @@ class PermissionState {
 
 class PermissionNotifier extends StateNotifier<PermissionState> {
   final PlatformChannelService _platform;
-  final HiveService _hive;
 
-  PermissionNotifier(this._platform, this._hive) : super(const PermissionState());
+  PermissionNotifier(this._platform, HiveService _hive) : super(const PermissionState());
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
