@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'platform_channel_service.dart';
 import 'hive_service.dart';
-import '../models/protection_event.dart';
+// models are referenced dynamically from the platform event stream; no direct type import required here.
 
 /// Listens for native protection events and persists them via Hive.
 class ProtectionEventService {
