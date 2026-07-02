@@ -1,7 +1,10 @@
 package com.gentleman.app
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -26,14 +29,37 @@ class AccessibilityMonitorService : AccessibilityService() {
         "Gentleman: Saving you from moving to a remote island out of embarrassment."
     )
 
+    private var decisionReceiver: BroadcastReceiver? = null
+
     override fun onCreate() {
         super.onCreate()
         createSarcasmNotificationChannel()
         scheduleSarcasmNotification()
+
+        decisionReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val result = intent.getStringExtra("result")
+                if (result == "blocked") {
+                    // Instantly simulate Back button twice to abort/close the outgoing call screen
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    handler.postDelayed({
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                    }, 100)
+                }
+            }
+        }
+        val filter = IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION")
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(decisionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(decisionReceiver, filter)
+        }
     }
 
     override fun onDestroy() {
         sarcasmRunnable?.let { handler.removeCallbacks(it) }
+        decisionReceiver?.let { unregisterReceiver(it) }
         super.onDestroy()
     }
 
