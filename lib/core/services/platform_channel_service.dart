@@ -29,6 +29,25 @@ class PlatformChannelService {
             _eventController.add(event);
           }
         } catch (_) {}
+      } else if (call.method == AppConstants.methodOnProtectionDecision) {
+        try {
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          if (args != null) {
+            final pkg = args['package'] as String? ?? '';
+            final interaction = args['interaction'] as String? ?? 'voice';
+            final resultStr = args['result'] as String? ?? 'blocked';
+            final interactionType = interaction == 'video' ? models.InteractionType.videoCall : models.InteractionType.voiceCall;
+            final result = resultStr == 'allowed' ? models.ProtectionResult.allowed : models.ProtectionResult.blocked;
+            final event = models.ProtectionEvent(
+              packageName: pkg,
+              interactionType: interactionType,
+              result: result,
+              timestamp: DateTime.now(),
+              holdDurationMs: 0,
+            );
+            _eventController.add(event);
+          }
+        } catch (_) {}
       }
     });
   }
