@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_constants.dart';
 import '../services/hive_service.dart';
+import '../services/platform_channel_service.dart';
 
 /// App settings state.
 class AppSettings {
@@ -37,8 +38,9 @@ class AppSettings {
 
 class AppSettingsNotifier extends StateNotifier<AppSettings> {
   final HiveService _hive;
+  final PlatformChannelService _platform;
 
-  AppSettingsNotifier(this._hive) : super(const AppSettings()) {
+  AppSettingsNotifier(this._hive, this._platform) : super(const AppSettings()) {
     _load();
   }
 
@@ -54,6 +56,7 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> setHoldDuration(int ms) async {
     await _hive.setSetting('holdDurationMs', ms);
+    await _platform.setHoldDurationMs(ms);
     state = state.copyWith(holdDurationMs: ms);
   }
 
@@ -84,5 +87,8 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 }
 
 final appSettingsProvider = StateNotifierProvider<AppSettingsNotifier, AppSettings>((ref) {
-  return AppSettingsNotifier(ref.read(hiveServiceProvider));
+  return AppSettingsNotifier(
+    ref.read(hiveServiceProvider),
+    ref.read(platformChannelServiceProvider),
+  );
 });

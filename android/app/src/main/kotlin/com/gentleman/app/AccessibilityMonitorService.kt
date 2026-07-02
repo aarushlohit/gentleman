@@ -38,9 +38,12 @@ class AccessibilityMonitorService : AccessibilityService() {
 
                 // Start the overlay to confirm the interaction, and broadcast the detection event.
                 try {
+                    val prefs = getSharedPreferences("gentleman_settings", android.content.Context.MODE_PRIVATE)
+                    val holdMs = prefs.getInt("holdDurationMs", 1000)
                     val svcIntent = Intent(this, OverlayService::class.java)
                     svcIntent.putExtra(OverlayService.EXTRA_PACKAGE, pkg)
                     svcIntent.putExtra(OverlayService.EXTRA_INTERACTION, interaction)
+                    svcIntent.putExtra(OverlayService.EXTRA_HOLD_DURATION_MS, holdMs)
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                         startForegroundService(svcIntent)
                     } else {

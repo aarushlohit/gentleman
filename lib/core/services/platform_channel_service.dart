@@ -114,6 +114,14 @@ class PlatformChannelService {
     }
   }
 
+  Future<void> setHoldDurationMs(int ms) async {
+    try {
+      await _channel.invokeMethod<void>(AppConstants.methodSetHoldDurationMs, {'ms': ms});
+    } on PlatformException {
+      // Silently fail — setting is still persisted in Hive for the Flutter side.
+    }
+  }
+
   Future<String?> getForegroundApp() async {
     try {
       final result = await _channel.invokeMethod<String>(AppConstants.methodGetForegroundApp);

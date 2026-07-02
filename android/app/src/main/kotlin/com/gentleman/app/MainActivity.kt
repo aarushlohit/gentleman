@@ -86,6 +86,12 @@ class MainActivity : FlutterActivity() {
                     val ignored = pm.isIgnoringBatteryOptimizations(packageName)
                     result.success(ignored)
                 }
+                "setHoldDurationMs" -> {
+                    val ms = call.argument<Int>("ms") ?: 1000
+                    val prefs = getSharedPreferences("gentleman_settings", Context.MODE_PRIVATE)
+                    prefs.edit().putInt("holdDurationMs", ms).apply()
+                    result.success(null)
+                }
                 "getForegroundApp" -> {
                     val pkg = getForegroundAppPackage()
                     result.success(pkg)
