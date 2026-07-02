@@ -12,13 +12,16 @@ import android.content.IntentFilter
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.gentleman/protection"
 
+    // Keep references to receivers so we can unregister them in onDestroy.
+    private var protectionEventReceiver: BroadcastReceiver? = null
+    private var protectionDecisionReceiver: BroadcastReceiver? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
 
         // Register a receiver to get protection events from the AccessibilityService and forward to Dart.
-        val filter = IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT")
-        registerReceiver(object : BroadcastReceiver() {
+        protectionEventReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent == null) return
                 val pkg = intent.getStringExtra("package")
@@ -30,11 +33,11 @@ class MainActivity : FlutterActivity() {
                     // ignore invocation failures
                 }
             }
-        }, filter)
+        }
+        registerReceiver(protectionEventReceiver, IntentFilter("com.gentleman.ACTION_PROTECTION_EVENT"))
 
         // Listen for overlay decisions and forward to Flutter as well.
-        val decisionFilter = IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION")
-        registerReceiver(object : BroadcastReceiver() {
+        protectionDecisionReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent == null) return
                 val pkg = intent.getStringExtra(OverlayService.EXTRA_PACKAGE)
@@ -46,7 +49,8 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                 }
             }
-        }, decisionFilter)
+        }
+        registerReceiver(protectionDecisionReceiver, IntentFilter("com.gentleman.ACTION_PROTECTION_DECISION"))
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -89,6 +93,15 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onDestroy() {
+        // Unregister receivers to prevent memory leaks when the activity is destroyed.
+        protectionEventReceiver?.let { unregisterReceiver(it) }
+        protectionDecisionReceiver?.let { unregisterReceiver(it) }
+        protectionEventReceiver = null
+        protectionDecisionReceiver = null
+        super.onDestroy()
     }
 
     private fun isOurAccessibilityServiceEnabled(): Boolean {
