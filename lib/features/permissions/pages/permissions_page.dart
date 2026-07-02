@@ -11,11 +11,25 @@ class PermissionsPage extends ConsumerStatefulWidget {
   ConsumerState<PermissionsPage> createState() => _PermissionsPageState();
 }
 
-class _PermissionsPageState extends ConsumerState<PermissionsPage> {
+class _PermissionsPageState extends ConsumerState<PermissionsPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() => ref.read(permissionProvider.notifier).refresh());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(permissionProvider.notifier).refresh();
+    }
   }
 
   @override
@@ -24,159 +38,172 @@ class _PermissionsPageState extends ConsumerState<PermissionsPage> {
     final permissions = ref.watch(permissionProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Permissions')),
+      backgroundColor: cs.surface,
+      appBar: AppBar(
+        title: const Text('Permissions'),
+        elevation: 0,
+        backgroundColor: cs.surface,
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        physics: const BouncingScrollPhysics(),
         children: [
-          _PermissionSection(
-            icon: LucideIcons.eye,
-            title: 'Accessibility Service',
-            description:
-                'Gentleman uses Accessibility Service to detect when you\'re inside a supported app like WhatsApp or Instagram. '
-                'This allows us to monitor for voice and video call buttons.',
-            granted: permissions.accessibilityEnabled,
-            actionLabel: permissions.accessibilityEnabled ? 'Granted' : 'Open Settings',
-            onAction: permissions.isLoading
-                ? null
-                : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
-            delayMs: 0,
-          ),
-          const SizedBox(height: 12),
-          _PermissionSection(
-            icon: LucideIcons.layers,
-            title: 'Overlay Permission',
-            description:
-                'Overlay permission allows Gentleman to show the "Hold to Confirm" dialog on top of other apps '
-                'when a call button is pressed, preventing accidental calls.',
-            granted: permissions.overlayEnabled,
-            actionLabel: permissions.overlayEnabled ? 'Granted' : 'Open Settings',
-            onAction: permissions.isLoading
-                ? null
-                : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
-            delayMs: 100,
-          ),
-          const SizedBox(height: 12),
-          _PermissionSection(
-            icon: LucideIcons.batteryFull,
-            title: 'Battery Optimization',
-            description:
-                'Disabling battery optimization helps Gentleman stay active in the background '
-                'so it can always protect you when needed.',
-            granted: permissions.batteryOptimizationDisabled,
-            actionLabel: permissions.batteryOptimizationDisabled ? 'Granted' : 'Open Settings',
-            onAction: permissions.isLoading
-                ? null
-                : () => ref.read(permissionProvider.notifier).openBatterySettings(),
-            delayMs: 200,
-          ),
-          const SizedBox(height: 24),
+          // Apple Group 1: All System permissions in a single card
           Card(
-            color: cs.primaryContainer.withValues(alpha: 0.3),
+            child: Column(
+              children: [
+                _buildApplePermissionTile(
+                  context: context,
+                  icon: LucideIcons.eye,
+                  iconColor: Colors.blue,
+                  title: 'Accessibility Service',
+                  description: 'Used to monitor call click events in WhatsApp and Instagram to prevent accidental triggers.',
+                  status: permissions.accessibilityEnabled,
+                  onTap: permissions.isLoading
+                      ? null
+                      : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
+                ),
+                const Divider(height: 0.5, indent: 56),
+                _buildApplePermissionTile(
+                  context: context,
+                  icon: LucideIcons.layers,
+                  iconColor: Colors.purple,
+                  title: 'Overlay Permission',
+                  description: 'Allows Gentleman to show the "Hold to Confirm" dialogue interface over WhatsApp or Instagram.',
+                  status: permissions.overlayEnabled,
+                  onTap: permissions.isLoading
+                      ? null
+                      : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
+                ),
+                const Divider(height: 0.5, indent: 56),
+                _buildApplePermissionTile(
+                  context: context,
+                  icon: LucideIcons.batteryFull,
+                  iconColor: Colors.green,
+                  title: 'Battery Optimization',
+                  description: 'Allow background activity to guarantee the shielding engine is active when call buttons are clicked.',
+                  status: permissions.batteryOptimizationDisabled,
+                  onTap: permissions.isLoading
+                      ? null
+                      : () => ref.read(permissionProvider.notifier).openBatterySettings(),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(duration: 350.ms),
+
+          const SizedBox(height: 24),
+
+          // Apple Group 2: Privacy Card
+          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(LucideIcons.shield, color: cs.primary),
-                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(LucideIcons.shield, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      'All data stays on your device. '
-                      'No network access. No tracking. No accounts.',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Privacy First Design',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'All configurations, names, and logs stay strictly on your local storage. Gentleman does not possess network permissions or use tracking code.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+          ).animate().fadeIn(duration: 350.ms, delay: 100.ms),
         ],
       ),
     );
   }
-}
 
-class _PermissionSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool granted;
-  final String actionLabel;
-  final VoidCallback? onAction;
-  final int delayMs;
-
-  const _PermissionSection({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.granted,
-    required this.actionLabel,
-    this.onAction,
-    this.delayMs = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildApplePermissionTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required bool status,
+    required VoidCallback? onTap,
+  }) {
     final cs = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: (granted ? Colors.green : cs.primary).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: granted ? Colors.green : cs.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: granted ? Colors.green.withValues(alpha: 0.12) : cs.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    granted ? 'Granted' : 'Required',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: granted ? Colors.green : cs.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-              ],
+    final activeColor = status ? Colors.green : Colors.orange;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 18),
+      ),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: activeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
             ),
-            const SizedBox(height: 12),
-            Text(
-              description,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: granted ? null : onAction,
-                child: Text(actionLabel),
+            child: Text(
+              status ? 'Active' : 'Setup Required',
+              style: TextStyle(
+                color: activeColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6.0),
+        child: Text(
+          description,
+          style: TextStyle(
+            fontSize: 12,
+            color: cs.onSurfaceVariant,
+            height: 1.4,
+          ),
         ),
       ),
-    ).animate().fadeIn(duration: 350.ms, delay: Duration(milliseconds: delayMs));
+      trailing: status
+          ? null
+          : Icon(
+              LucideIcons.chevronRight,
+              color: cs.onSurfaceVariant,
+              size: 16,
+            ),
+      onTap: status ? null : onTap,
+    );
   }
 }

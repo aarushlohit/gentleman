@@ -79,79 +79,93 @@ class AccessibilityMonitorService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        // Only consider click events and window changes which may indicate a call UI
         val type = event.eventType
         val pkg = event.packageName?.toString() ?: return
 
-        if (type == AccessibilityEvent.TYPE_VIEW_CLICKED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
-            // Heuristic: inspect event text and contentDescription for "call" keywords
-            val texts = StringBuilder()
-            for (t in event.text) {
-                texts.append(t).append(' ')
+        // We only care about WhatsApp and Instagram!
+        if (pkg != "com.whatsapp" && pkg != "com.instagram.android") return
+
+        // Intercept view clicked events representing call button taps
+        if (type == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            val node = event.source ?: return
+            val interaction = isCallButtonClicked(node) ?: return // Not a call button click
+
+            // Before drawing the overlay, make sure we have overlay drawing permission!
+            if (!android.provider.Settings.canDrawOverlays(this)) return
+
+            // Start the overlay to confirm the interaction, and broadcast the detection event.
+            try {
+                val prefs = getSharedPreferences("gentleman_settings", android.content.Context.MODE_PRIVATE)
+                val holdMs = prefs.getInt("holdDurationMs", 1000)
+                val svcIntent = Intent(this, OverlayService::class.java)
+                svcIntent.putExtra(OverlayService.EXTRA_PACKAGE, pkg)
+                svcIntent.putExtra(OverlayService.EXTRA_INTERACTION, interaction)
+                svcIntent.putExtra(OverlayService.EXTRA_HOLD_DURATION_MS, holdMs)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    startForegroundService(svcIntent)
+                } else {
+                    startService(svcIntent)
+                }
+            } catch (_: Exception) {
+                // ignore service launch failures
             }
 
-            val desc = event.contentDescription?.toString() ?: ""
-            val combined = (texts.toString() + " " + desc).lowercase()
-
-            if (combined.contains("call") || combined.contains("voice") || combined.contains("video")) {
-                val interaction = when {
-                    combined.contains("video") -> "video"
-                    combined.contains("voice") || combined.contains("audio") -> "voice"
-                    else -> "voice"
-                }
-
-                // Start the overlay to confirm the interaction, and broadcast the detection event.
-                try {
-                    val prefs = getSharedPreferences("gentleman_settings", android.content.Context.MODE_PRIVATE)
-                    val holdMs = prefs.getInt("holdDurationMs", 1000)
-                    val svcIntent = Intent(this, OverlayService::class.java)
-                    svcIntent.putExtra(OverlayService.EXTRA_PACKAGE, pkg)
-                    svcIntent.putExtra(OverlayService.EXTRA_INTERACTION, interaction)
-                    svcIntent.putExtra(OverlayService.EXTRA_HOLD_DURATION_MS, holdMs)
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                        startForegroundService(svcIntent)
-                    } else {
-                        startService(svcIntent)
-                    }
-                } catch (_: Exception) {
-                    // ignore service launch failures
-                }
-
-                val intent = Intent(ACTION_PROTECTION_EVENT)
-                intent.putExtra(EXTRA_PACKAGE, pkg)
-                intent.putExtra(EXTRA_INTERACTION, interaction)
-                sendBroadcast(intent)
-                return
-            }
-
-            // As a fallback, also inspect source node's children for labels containing "call"
-            val node: AccessibilityNodeInfo? = event.source
-            if (node != null) {
-                if (nodeHasCallText(node)) {
-                    val intent = Intent(ACTION_PROTECTION_EVENT)
-                    intent.putExtra(EXTRA_PACKAGE, pkg)
-                    intent.putExtra(EXTRA_INTERACTION, "voice")
-                    sendBroadcast(intent)
-                }
-            }
+            val intent = Intent(ACTION_PROTECTION_EVENT)
+            intent.putExtra(EXTRA_PACKAGE, pkg)
+            intent.putExtra(EXTRA_INTERACTION, interaction)
+            sendBroadcast(intent)
         }
     }
 
-    private fun nodeHasCallText(node: AccessibilityNodeInfo): Boolean {
-        try {
-            val desc = node.contentDescription?.toString()?.lowercase()
-            if (desc != null && (desc.contains("call") || desc.contains("video"))) return true
-            val text = node.text?.toString()?.lowercase()
-            if (text != null && (text.contains("call") || text.contains("video"))) return true
+    private fun isCallButtonClicked(node: AccessibilityNodeInfo): String? {
+        val resId = node.viewIdResourceName?.lowercase() ?: ""
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+        val text = node.text?.toString()?.lowercase() ?: ""
 
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                if (nodeHasCallText(child)) return true
-            }
-        } catch (e: Exception) {
-            // ignore traversal errors
+        // Exclude text inputs, search fields, chat list items, status updates
+        if (resId.contains("search") || resId.contains("input") || resId.contains("edit") || resId.contains("entry") || resId.contains("message")) {
+            return null
         }
-        return false
+        if (desc.contains("search") || desc.contains("message") || desc.contains("type") || desc.contains("text")) {
+            return null
+        }
+
+        // Match video call
+        if (resId.contains("video_call") || resId.contains("video") || 
+            desc.contains("video call") || desc.contains("start video") ||
+            text.contains("video call") || text.contains("video")) {
+            return "video"
+        }
+
+        // Match voice call
+        if (resId.contains("menu_item_call") || resId.contains("voice_call") || resId.contains("audio_call") ||
+            desc.contains("voice call") || desc.contains("start voice") || desc.contains("audio call") ||
+            desc.contains("start call") || desc.contains("make a call") || desc.contains("call") ||
+            text.contains("voice call") || text.contains("audio call") || text.contains("call")) {
+            return "voice"
+        }
+
+        // Traversal of children (since call icons are often inside a parent button layout)
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = isCallButtonClicked(child)
+            if (result != null) return result
+        }
+
+        // Check if any parent indicates it is a call button container
+        var parent = node.parent
+        while (parent != null) {
+            val parentResId = parent.viewIdResourceName?.lowercase() ?: ""
+            if (parentResId.contains("search") || parentResId.contains("input") || parentResId.contains("edit")) {
+                return null
+            }
+            if (parentResId.contains("video_call") || parentResId.contains("menu_item_call") || parentResId.contains("audio_call")) {
+                return if (parentResId.contains("video")) "video" else "voice"
+            }
+            parent = parent.parent
+        }
+
+        return null
     }
 
     override fun onInterrupt() {}

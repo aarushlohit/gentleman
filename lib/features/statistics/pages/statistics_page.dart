@@ -27,8 +27,11 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     final stats = ref.watch(statisticsProvider);
 
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text('Statistics'),
+        elevation: 0,
+        backgroundColor: cs.surface,
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.refreshCw),
@@ -37,360 +40,314 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
         ],
       ),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          // ── Stat counter row ──────────────────────────────────────────
+          // Stat Counters Grid
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  _StatCard(
-                    icon: LucideIcons.shieldOff,
-                    label: 'Today',
-                    value: '${stats.todayCount}',
+                  _buildAppleStatBox(
+                    context,
+                    icon: LucideIcons.shieldAlert,
                     color: Colors.green,
-                    delayMs: 0,
+                    value: '${stats.todayCount}',
+                    label: 'Today',
                   ),
                   const SizedBox(width: 8),
-                  _StatCard(
+                  _buildAppleStatBox(
+                    context,
                     icon: LucideIcons.calendar,
-                    label: 'This Week',
+                    color: Colors.blue,
                     value: '${stats.weekCount}',
-                    color: cs.primary,
-                    delayMs: 80,
+                    label: 'This Week',
                   ),
                   const SizedBox(width: 8),
-                  _StatCard(
+                  _buildAppleStatBox(
+                    context,
                     icon: LucideIcons.barChart3,
-                    label: 'Total',
-                    value: '${stats.totalCount}',
                     color: Colors.orange,
-                    delayMs: 160,
+                    value: '${stats.totalCount}',
+                    label: 'Total Saved',
                   ),
                 ],
               ),
             ),
           ),
 
-          // ── Avg hold duration ─────────────────────────────────────────
+          // Average Hold Time (Apple Style Row)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+                          color: cs.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
                         ),
-                        child: Icon(LucideIcons.clock, color: cs.primary, size: 22),
+                        child: Icon(LucideIcons.clock, color: cs.primary, size: 18),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '${stats.avgHoldDuration.toInt()} ms',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           Text(
-                            'Average hold duration',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
+                            'Average hold confirmation time',
+                            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ).animate().fadeIn(duration: 300.ms, delay: 240.ms),
+              ).animate().fadeIn(duration: 300.ms, delay: 100.ms),
             ),
           ),
 
-          // ── Per-app breakdown ─────────────────────────────────────────
+          // Per App Breakdown (Grouped Card)
           if (stats.totalCount > 0) ...[
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-                child: Text(
-                  'Per App',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+              child: _buildSectionHeader(context, 'PROTECTION BY APP'),
+            ),
+            SliverToBoxAdapter(
+              child: Card(
+                child: Column(
+                  children: [
+                    if (stats.whatsappCount > 0) ...[
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        leading: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(LucideIcons.messageCircle, size: 16, color: Colors.green),
+                        ),
+                        title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        trailing: Text(
+                          '${stats.whatsappCount} blocked',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurfaceVariant, fontSize: 13),
+                        ),
                       ),
+                      if (stats.instagramCount > 0) const Divider(height: 0.5, indent: 60),
+                    ],
+                    if (stats.instagramCount > 0)
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        leading: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.pink.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(LucideIcons.camera, size: 16, color: Colors.pink),
+                        ),
+                        title: const Text('Instagram', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        trailing: Text(
+                          '${stats.instagramCount} blocked',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurfaceVariant, fontSize: 13),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            if (stats.whatsappCount > 0)
-              SliverToBoxAdapter(
-                child: Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(LucideIcons.messageCircle, size: 18, color: Colors.green),
-                    ),
-                    title: const Text('WhatsApp'),
-                    trailing: Text(
-                      '${stats.whatsappCount}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                ),
-              ),
-            if (stats.instagramCount > 0)
-              SliverToBoxAdapter(
-                child: Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.pink.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(LucideIcons.camera, size: 18, color: Colors.pink),
-                    ),
-                    title: const Text('Instagram'),
-                    trailing: Text(
-                      '${stats.instagramCount}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                ),
-              ),
           ],
 
-          // ── Recent activity section header ────────────────────────────
+          // Recent Activity Header
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recent Activity',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
-                  Text(
-                    '${stats.recentEvents.length} events',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
+            child: _buildSectionHeader(context, 'RECENT ACTIVITY LOGS'),
           ),
 
-          // ── Empty state ────────────────────────────────────────────────
+          // Empty state
           if (stats.recentEvents.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
+                padding: const EdgeInsets.symmetric(vertical: 48),
                 child: Column(
                   children: [
-                    Icon(LucideIcons.shieldCheck, size: 48, color: cs.onSurfaceVariant),
+                    Icon(LucideIcons.shieldCheck, size: 40, color: cs.onSurfaceVariant),
                     const SizedBox(height: 12),
                     Text(
-                      'No events yet',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                      'All quiet on the shield front',
+                      style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Protection events will appear here',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                      'Protection triggers will show up here',
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                     ),
                   ],
                 ),
               ),
             ),
 
-          // ── Event history list ────────────────────────────────────────
-          SliverList.builder(
-            itemCount: stats.recentEvents.length,
-            itemBuilder: (context, index) {
-              final event = stats.recentEvents[index];
-              return _EventTile(event: event, index: index);
-            },
-          ),
+          // Recent Activity List (Grouped inside a single Card)
+          if (stats.recentEvents.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Card(
+                child: Column(
+                  children: List.generate(stats.recentEvents.length, (index) {
+                    final event = stats.recentEvents[index];
+                    final isLast = index == stats.recentEvents.length - 1;
+                    final isBlocked = event.result == ProtectionResult.blocked;
+                    final appColor = AppIcons.colorForPackage(event.packageName);
 
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: appColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(AppIcons.iconForPackage(event.packageName), color: appColor, size: 18),
+                          ),
+                          title: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                event.appName,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (isBlocked ? Colors.green : cs.error).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  isBlocked ? 'Blocked' : 'Allowed',
+                                  style: TextStyle(
+                                    color: isBlocked ? Colors.green : cs.error,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      event.interactionType == InteractionType.videoCall
+                                          ? LucideIcons.video
+                                          : LucideIcons.phone,
+                                      size: 12,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      event.interactionLabel,
+                                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  AppDateUtils.timeAgo(event.timestamp),
+                                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (!isLast) const Divider(height: 0.5, indent: 64),
+                      ],
+                    );
+                  }),
+                ),
+              ).animate().fadeIn(duration: 350.ms),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
     );
   }
-}
 
-class _EventTile extends StatelessWidget {
-  final ProtectionEvent event;
-  final int index;
+  Widget _buildSectionHeader(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 16, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+      ),
+    );
+  }
 
-  const _EventTile({required this.event, required this.index});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildAppleStatBox(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String value,
+    required String label,
+  }) {
     final cs = Theme.of(context).colorScheme;
-    final isBlocked = event.result == ProtectionResult.blocked;
-    final appColor = AppIcons.colorForPackage(event.packageName);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant, width: 0.5),
+        ),
+        child: Column(
           children: [
-            // App icon
             Container(
-              width: 40,
-              height: 40,
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: appColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              child: Icon(AppIcons.iconForPackage(event.packageName), color: appColor, size: 20),
+              child: Icon(icon, color: color, size: 16),
             ),
-            const SizedBox(width: 12),
-            // App name + call type
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.appName,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    letterSpacing: -0.5,
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(
-                        event.interactionType == InteractionType.videoCall
-                            ? LucideIcons.video
-                            : LucideIcons.phone,
-                        size: 12,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        event.interactionLabel,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
               ),
-            ),
-            // Result badge + time
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: (isBlocked ? Colors.green : cs.error).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isBlocked ? 'Blocked' : 'Allowed',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isBlocked ? Colors.green : cs.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AppDateUtils.timeAgo(event.timestamp),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                ),
-              ],
             ),
           ],
         ),
       ),
-    ).animate().fadeIn(
-          duration: 300.ms,
-          delay: Duration(milliseconds: index < 10 ? index * 40 : 0),
-        );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final int delayMs;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    this.delayMs = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 10),
-              Text(value,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      )),
-              const SizedBox(height: 2),
-              Text(label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      )),
-            ],
-          ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 300.ms, delay: Duration(milliseconds: delayMs));
+    );
   }
 }

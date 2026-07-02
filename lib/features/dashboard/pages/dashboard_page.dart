@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/route_constants.dart';
 import '../../../core/services/permission_service.dart';
 import '../../../core/services/statistics_provider.dart';
 import '../../../core/services/protected_apps_provider.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/common_widgets.dart';
-import '../../../core/widgets/status_card.dart';
 import '../../../core/utils/app_icons.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
@@ -20,14 +17,29 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
       ref.read(permissionProvider.notifier).refresh();
       ref.read(statisticsProvider.notifier).refresh();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(permissionProvider.notifier).refresh();
+      ref.read(statisticsProvider.notifier).refresh();
+    }
   }
 
   @override
@@ -40,408 +52,357 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final allEnabled = apps.every((a) => a.isEnabled);
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              cs.surface,
-              cs.primary.withValues(alpha: 0.02),
-              cs.primary.withValues(alpha: 0.08),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // Custom Header App Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // Apple-style Header App Bar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                child: Row(
+                  children: [
+                    const AppLogo(size: 40, showGlow: false),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Gentleman',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                        ),
+                        Text(
+                          allEnabled ? 'Shield Active' : 'Shield Partially Configured',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: allEnabled ? Colors.green : cs.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Pulse dot to get attention
+                    ProtectionDot(isActive: allEnabled, size: 14),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(LucideIcons.settings, color: cs.onSurfaceVariant),
+                      onPressed: () => context.push(RoutePaths.settings),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Apple Group 1: General Status
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Card(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const AppLogo(size: 46, showGlow: true)
-                              .animate()
-                              .fadeIn(duration: 400.ms)
-                              .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack),
-                          const SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Gentleman',
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.5,
-                                    ),
-                              ),
-                              Text(
-                                'Dignity Shield active',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: cs.primary,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.8,
-                                    ),
-                              ),
-                            ],
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (allEnabled ? Colors.green : Colors.grey).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
-                          const Spacer(),
-                          // Interactive status dot next to settings
-                          ProtectionDot(isActive: allEnabled, size: 16),
-                          const SizedBox(width: 8),
-                          Container(
+                          child: Icon(
+                            allEnabled ? LucideIcons.shield : LucideIcons.shieldOff,
+                            color: allEnabled ? Colors.green : Colors.grey,
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text(
+                          'Accidental Call Interceptor',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        ),
+                        subtitle: Text(
+                          allEnabled ? 'All protected apps are guarded' : 'Tap to enable all shields',
+                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        ),
+                        trailing: Switch.adaptive(
+                          value: allEnabled,
+                          activeTrackColor: Colors.green,
+                          onChanged: (val) {
+                            if (val) {
+                              ref.read(protectedAppsProvider.notifier).enableAll();
+                            } else {
+                              ref.read(protectedAppsProvider.notifier).disableAll();
+                            }
+                          },
+                        ),
+                      ),
+                      if (stats.lastEvent != null) ...[
+                        const Divider(height: 0.5, indent: 60),
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                              color: cs.primary.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: IconButton(
-                              icon: const Icon(LucideIcons.settings, size: 20),
-                              onPressed: () => context.push(RoutePaths.settings),
-                            ),
+                            child: Icon(LucideIcons.history, color: cs.primary, size: 20),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        AppConstants.appTagline,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                              fontStyle: FontStyle.italic,
-                            ),
-                      ),
+                          title: const Text(
+                            'Last Intercepted Event',
+                            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          ),
+                          subtitle: Text(
+                            '${stats.lastEvent!.appName} - ${stats.lastEvent!.interactionLabel}',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                        ),
+                      ]
                     ],
                   ),
                 ),
               ),
+            ),
 
-              // Main Shield Status Card (Glassmorphic Gold Gradient)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                      side: BorderSide(
-                        color: cs.primary.withValues(alpha: 0.25),
-                        width: 1.5,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Container(
-                      padding: const EdgeInsets.all(28),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            cs.primary.withValues(alpha: 0.18),
-                            cs.primary.withValues(alpha: 0.04),
-                            cs.surface,
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                allEnabled ? 'Shield Active' : 'Shield Inactive',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.5,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            allEnabled
-                                ? '${apps.where((a) => a.isEnabled).length}/${apps.length} apps secured'
-                                : 'Accidental touches might occur! Enable shielding.',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                          if (stats.lastEvent != null) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: cs.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Last blocked: ${stats.lastEvent!.appName} (${stats.lastEvent!.interactionLabel})',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: cs.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: () {
-                              if (allEnabled) {
-                                ref.read(protectedAppsProvider.notifier).disableAll();
-                              } else {
-                                ref.read(protectedAppsProvider.notifier).enableAll();
-                              }
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: allEnabled ? cs.error : cs.primary,
-                              foregroundColor: allEnabled ? cs.onError : cs.onPrimary,
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            icon: Icon(allEnabled ? LucideIcons.shieldOff : LucideIcons.shield, size: 18),
-                            label: Text(
-                              allEnabled ? 'Disable Shield' : 'Enable Shield',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
-                ),
-              ),
-
-              // Statistics Section
-              SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: 'Shield Statistics',
-                  actionText: 'History',
-                  onAction: () => context.go(RoutePaths.statistics),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatCard(
-                          icon: LucideIcons.shieldAlert,
-                          label: 'Saved Accidental Calls',
-                          value: '${stats.todayCount}',
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _StatCard(
-                          icon: LucideIcons.hand,
-                          label: 'Average Hold Time',
-                          value: '${stats.avgHoldDuration.toInt()}ms',
-                          color: cs.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Protected Apps Section
-              SliverToBoxAdapter(
-                child: SectionHeader(title: 'Protected Apps'),
-              ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+            // Apple Group 2: Protected Apps
+            SliverToBoxAdapter(
+              child: _buildSectionHeader(context, 'PROTECTED APPS'),
+            ),
+            SliverToBoxAdapter(
+              child: Card(
+                child: Column(
+                  children: List.generate(apps.length, (index) {
                     final app = apps[index];
-                    return StatusCard(
-                      icon: AppIcons.iconForPackage(app.packageName),
-                      iconColor: AppIcons.colorForPackage(app.packageName),
-                      title: app.displayName,
-                      subtitle: app.isEnabled ? 'Shield Enabled' : 'Shield Disabled',
-                      trailing: Switch(
-                        value: app.isEnabled,
-                        onChanged: (_) {
-                          ref.read(protectedAppsProvider.notifier).toggleApp(app.packageName);
-                        },
-                      ),
-                      animDelayMs: (index + 1) * 80,
+                    final isLast = index == apps.length - 1;
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppIcons.colorForPackage(app.packageName).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              AppIcons.iconForPackage(app.packageName),
+                              color: AppIcons.colorForPackage(app.packageName),
+                              size: 18,
+                            ),
+                          ),
+                          title: Text(
+                            app.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                          subtitle: Text(
+                            app.isEnabled ? 'Shielding active' : 'Shielding disabled',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                          trailing: Switch.adaptive(
+                            value: app.isEnabled,
+                            activeTrackColor: Colors.green,
+                            onChanged: (_) {
+                              ref.read(protectedAppsProvider.notifier).toggleApp(app.packageName);
+                            },
+                          ),
+                        ),
+                        if (!isLast) const Divider(height: 0.5, indent: 64),
+                      ],
                     );
-                  },
-                  childCount: apps.length,
+                  }),
                 ),
               ),
+            ),
 
-              // Permission status Section
-              SliverToBoxAdapter(
-                child: SectionHeader(title: 'Required Permissions'),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: Column(
-                    children: [
-                      _PermissionCard(
-                        icon: LucideIcons.eye,
-                        label: 'Accessibility Service',
-                        subtitle: 'Monitors call clicks inside target apps.',
-                        status: permissions.accessibilityEnabled,
-                        onTap: permissions.isLoading
-                            ? null
-                            : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
-                      ),
-                      const SizedBox(height: 8),
-                      _PermissionCard(
-                        icon: LucideIcons.layers,
-                        label: 'System Overlay Window',
-                        subtitle: 'Draws the verification prompt screen.',
-                        status: permissions.overlayEnabled,
-                        onTap: permissions.isLoading
-                            ? null
-                            : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
-                      ),
-                    ],
-                  ),
+            // Apple Group 3: Permissions
+            SliverToBoxAdapter(
+              child: _buildSectionHeader(context, 'REQUIRED SYSTEM SETTINGS'),
+            ),
+            SliverToBoxAdapter(
+              child: Card(
+                child: Column(
+                  children: [
+                    _buildPermissionListTile(
+                      context: context,
+                      icon: LucideIcons.eye,
+                      iconColor: Colors.blue,
+                      title: 'Accessibility Service',
+                      subtitle: 'Intercepts call button taps',
+                      status: permissions.accessibilityEnabled,
+                      onTap: permissions.isLoading
+                          ? null
+                          : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
+                    ),
+                    const Divider(height: 0.5, indent: 64),
+                    _buildPermissionListTile(
+                      context: context,
+                      icon: LucideIcons.layers,
+                      iconColor: Colors.purple,
+                      title: 'Overlay Permission',
+                      subtitle: 'Draws confirmation shield screen',
+                      status: permissions.overlayEnabled,
+                      onTap: permissions.isLoading
+                          ? null
+                          : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+            ),
 
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+            // Apple Group 4: Statistics Summary
+            SliverToBoxAdapter(
+              child: _buildSectionHeader(context, 'STATISTICS SUMMARY'),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildAppleStatCard(
+                        context,
+                        icon: LucideIcons.shieldCheck,
+                        color: Colors.green,
+                        value: '${stats.todayCount}',
+                        label: 'Saved Today',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildAppleStatCard(
+                        context,
+                        icon: LucideIcons.clock,
+                        color: Colors.blue,
+                        value: '${stats.avgHoldDuration.toInt()}ms',
+                        label: 'Avg Hold Time',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(height: 16),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
     );
   }
-}
 
-class _PermissionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final bool status;
-  final VoidCallback? onTap;
-
-  const _PermissionCard({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.status,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final activeColor = status ? Colors.green : cs.error;
-
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: activeColor.withValues(alpha: 0.15), width: 1.2),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: activeColor.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: activeColor,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
-          child: Text(
-            status ? 'Permission Active' : subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: status ? Colors.green : cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: activeColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            status ? 'Active' : 'Setup',
-            style: TextStyle(
-              color: activeColor,
+  Widget _buildSectionHeader(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 16, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.bold,
-              fontSize: 11,
+              letterSpacing: 0.5,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionListTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool status,
+    required VoidCallback? onTap,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final activeColor = status ? Colors.green : Colors.orange;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 18),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            status ? 'Active' : 'Configure',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: activeColor,
             ),
           ),
-        ),
-        onTap: onTap,
+          const SizedBox(width: 4),
+          Icon(
+            status ? LucideIcons.check : LucideIcons.chevronRight,
+            color: activeColor,
+            size: 16,
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildAppleStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String value,
+    required String label,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 22,
+                  letterSpacing: -0.5,
+                ),
+          ),
+        ],
       ),
     );
   }

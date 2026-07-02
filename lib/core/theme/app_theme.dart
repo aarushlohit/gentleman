@@ -47,8 +47,11 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: scheme.outlineVariant, width: 0.5),
+        ),
+        color: scheme.surfaceContainerHighest,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -126,8 +129,11 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: scheme.outlineVariant, width: 0.5),
+        ),
+        color: scheme.surfaceContainerHighest,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       ),
       navigationBarTheme: NavigationBarThemeData(
