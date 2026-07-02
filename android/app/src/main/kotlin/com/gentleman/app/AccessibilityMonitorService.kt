@@ -36,7 +36,20 @@ class AccessibilityMonitorService : AccessibilityService() {
                     else -> "voice"
                 }
 
-                // Broadcast the event locally for MainActivity to pick up and forward to Flutter.
+                // Start the overlay to confirm the interaction, and broadcast the detection event.
+                try {
+                    val svcIntent = Intent(this, OverlayService::class.java)
+                    svcIntent.putExtra(OverlayService.EXTRA_PACKAGE, pkg)
+                    svcIntent.putExtra(OverlayService.EXTRA_INTERACTION, interaction)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(svcIntent)
+                    } else {
+                        startService(svcIntent)
+                    }
+                } catch (_: Exception) {
+                    // ignore service launch failures
+                }
+
                 val intent = Intent(ACTION_PROTECTION_EVENT)
                 intent.putExtra(EXTRA_PACKAGE, pkg)
                 intent.putExtra(EXTRA_INTERACTION, interaction)
