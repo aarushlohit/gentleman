@@ -41,7 +41,7 @@ class AccessibilityMonitorService : AccessibilityService() {
     private var decisionReceiver: BroadcastReceiver? = null
     
     // Blocker overlays targeting physical call button coordinates
-    private val activeBlockers = mutableListOf<Pair<View, AccessibilityNodeInfo>>()
+    private val activeBlockers = mutableListOf<Pair<View, Rect>>()
     private var blockersEnabled = true
     private val blockersHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingCallType = ""
@@ -304,13 +304,10 @@ class AccessibilityMonitorService : AccessibilityService() {
 
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         
-        // Remove old blockers to prevent duplicates and follow screen changes/rotations
-        removeAllBlockers()
-
-        val screenHeight = resources.displayMetrics.heightPixels
+        // Filter and collect valid call buttons that pass the vertical bounds check
+        val validButtons = mutableListOf<Pair<Rect, Pair<AccessibilityNodeInfo, String>>>()
         for (pair in buttons) {
             val node = pair.first
-            val type = pair.second
             val rect = Rect()
             node.getBoundsInScreen(rect)
 
@@ -321,6 +318,26 @@ class AccessibilityMonitorService : AccessibilityService() {
                 android.util.Log.d("Gentleman", "Ignoring matched node outside header bounds (y = 60 to 520): $rect")
                 continue
             }
+            validButtons.add(Pair(rect, pair))
+        }
+
+        // Compare new valid buttons with existing active blockers using coordinates to avoid flickering/blinking
+        val activeRects = activeBlockers.map { it.second }
+        val validRects = validButtons.map { it.first }
+
+        if (activeRects.size == validRects.size && activeRects.zip(validRects).all { (r1, r2) ->
+            r1.left == r2.left && r1.top == r2.top && r1.right == r2.right && r1.bottom == r2.bottom
+        }) {
+            // Layout is identical, do not recreate overlays (stops flickering/blinking!)
+            return
+        }
+
+        removeAllBlockers()
+
+        for (item in validButtons) {
+            val rect = item.first
+            val node = item.second.first
+            val type = item.second.second
 
             try {
                 val blocker = createBlockerView(rect, node, type)
@@ -339,7 +356,7 @@ class AccessibilityMonitorService : AccessibilityService() {
                 params.y = rect.top
 
                 wm.addView(blocker, params)
-                activeBlockers.add(Pair(blocker, node))
+                activeBlockers.add(Pair(blocker, rect))
                 android.util.Log.d("Gentleman", "Added blocker view at: $rect for type: $type")
             } catch (e: Exception) {
                 android.util.Log.e("Gentleman", "Failed to add blocker view", e)
