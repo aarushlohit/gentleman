@@ -364,14 +364,14 @@ class AccessibilityMonitorService : AccessibilityService() {
 
         // Draw a small indicator badge (red dot inside a black ring - our app logo design)
         val indicator = View(context)
-        val size = (18 * resources.displayMetrics.density).toInt()
+        val size = (26 * resources.displayMetrics.density).toInt()
         val params = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
         indicator.layoutParams = params
 
         val shape = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.parseColor("#FF3B30")) // red dot
-            setStroke((2 * resources.displayMetrics.density).toInt(), Color.BLACK) // black ring
+            setStroke((3 * resources.displayMetrics.density).toInt(), Color.BLACK) // black ring
         }
         indicator.background = shape
         view.addView(indicator)
