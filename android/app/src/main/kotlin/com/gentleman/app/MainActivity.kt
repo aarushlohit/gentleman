@@ -77,8 +77,7 @@ class MainActivity : FlutterActivity() {
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isAccessibilityEnabled" -> {
-                    val am = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-                    result.success(am.isEnabled)
+                    result.success(isOurAccessibilityServiceEnabled())
                 }
                 "isOverlayEnabled" -> {
                     val allowed = android.provider.Settings.canDrawOverlays(this)
@@ -134,11 +133,15 @@ class MainActivity : FlutterActivity() {
 
     private fun isOurAccessibilityServiceEnabled(): Boolean {
         try {
+            val expectedLong = "$packageName/$packageName.AccessibilityMonitorService"
+            val expectedShort = "$packageName/.AccessibilityMonitorService"
             val enabledServices = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
             if (enabledServices != null) {
                 val services = enabledServices.split(":")
                 for (s in services) {
-                    if (s.contains("com.gentleman.app/AccessibilityMonitorService")) return true
+                    if (s == expectedLong || s == expectedShort || s.contains("AccessibilityMonitorService")) {
+                        return true
+                    }
                 }
             }
         } catch (e: Exception) {

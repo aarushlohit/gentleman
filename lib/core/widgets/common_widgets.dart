@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../theme/app_colors.dart';
 
-/// Animated protection status indicator dot (glowing interactive red dot).
+/// Animated protection status indicator dot.
 class ProtectionDot extends StatelessWidget {
   final bool isActive;
   final double size;
 
   const ProtectionDot({super.key, required this.isActive, this.size = 12});
 
-  void _showSarcasticStatus(BuildContext context) {
+  void _showStatus(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -19,25 +20,24 @@ class ProtectionDot extends StatelessWidget {
               height: 12,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.red,
+                color: AppColors.success,
                 boxShadow: [
-                  BoxShadow(color: Colors.redAccent, blurRadius: 6, spreadRadius: 1),
+                  BoxShadow(color: AppColors.success, blurRadius: 6, spreadRadius: 1),
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            const Text('Dignity Status: Active'),
+            const Text('Shield Status'),
           ],
         ),
         content: const Text(
-          'Yes, the dot is red. No, nothing is wrong.\n\n'
-          'We chose red because it triggers your overthinking brain to check on the app. '
-          'Your beloved one is 100% safe from the demon of accidental touch.',
+          'The indicator is intentionally prominent so you can verify protection instantly. '
+          'A glow means Gentleman is actively guarding supported call actions.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('I will stop overthinking'),
+            child: const Text('Understood'),
           ),
         ],
       ),
@@ -47,18 +47,18 @@ class ProtectionDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showSarcasticStatus(context),
+      onTap: () => _showStatus(context),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? Colors.red : Colors.grey,
+          color: isActive ? AppColors.success : AppColors.lightSecondary,
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: Colors.red.withValues(alpha: 0.6),
+                    color: AppColors.success.withValues(alpha: 0.6),
                     blurRadius: 12,
                     spreadRadius: 3,
                   ),
@@ -100,7 +100,7 @@ class SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
           ),
           if (actionText != null)

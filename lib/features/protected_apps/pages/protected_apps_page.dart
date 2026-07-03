@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
+import '../../../core/models/protected_app.dart';
 import '../../../core/services/protected_apps_provider.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_icons.dart';
+import '../../../core/widgets/premium_widgets.dart';
 
 class ProtectedAppsPage extends ConsumerWidget {
   const ProtectedAppsPage({super.key});
@@ -12,170 +15,210 @@ class ProtectedAppsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final apps = ref.watch(protectedAppsProvider);
+    final activeCount = apps.where((app) => app.isEnabled).length;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        title: const Text('Protected Apps'),
-        elevation: 0,
-        backgroundColor: cs.surface,
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.info),
-            onPressed: () => _showInfo(context),
-          ),
-        ],
-      ),
-      body: apps.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.smartphone, size: 64, color: cs.onSurfaceVariant),
-                  const SizedBox(height: 16),
-                  Text('No apps configured', style: Theme.of(context).textTheme.titleMedium),
-                ],
+      backgroundColor: Colors.transparent,
+      body: PremiumBackground(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            const SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              title: Text('Protected Apps'),
+            ),
+            SliverToBoxAdapter(
+              child: PremiumPanel(
+                margin: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PremiumPill(
+                      label: '$activeCount of ${apps.length} apps actively shielded',
+                      color: activeCount == apps.length && apps.isNotEmpty ? AppColors.success : cs.primary,
+                      icon: LucideIcons.smartphoneCharging,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Fine-tune which apps get protection, and whether voice or video calls deserve a second layer of intent.',
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 34, height: 0.98),
+                    ),
+                  ],
+                ),
               ),
-            )
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              physics: const BouncingScrollPhysics(),
-              children: [
-                Card(
+            ),
+            if (apps.isEmpty)
+              SliverToBoxAdapter(
+                child: PremiumPanel(
                   child: Column(
-                    children: List.generate(apps.length, (index) {
-                      final app = apps[index];
-                      final isLast = index == apps.length - 1;
-                      return Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                                  leading: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: AppIcons.colorForPackage(app.packageName).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      AppIcons.iconForPackage(app.packageName),
-                                      color: AppIcons.colorForPackage(app.packageName),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    app.displayName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                                  ),
-                                  subtitle: Text(
-                                    app.packageName,
-                                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                                  ),
-                                  trailing: Switch.adaptive(
-                                    value: app.isEnabled,
-                                    activeTrackColor: Colors.green,
-                                    onChanged: (v) {
-                                      ref.read(protectedAppsProvider.notifier).toggleApp(app.packageName);
-                                    },
-                                  ),
-                                ),
-                                if (app.isEnabled)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(68, 4, 16, 8),
-                                    child: Row(
-                                      children: [
-                                        _buildTypeToggle(
-                                          context: context,
-                                          label: 'Voice Protection',
-                                          icon: LucideIcons.phone,
-                                          active: app.voiceCallProtected,
-                                          onTap: () {
-                                            ref.read(protectedAppsProvider.notifier).toggleVoiceCall(app.packageName);
-                                          },
-                                        ),
-                                        const SizedBox(width: 12),
-                                        _buildTypeToggle(
-                                          context: context,
-                                          label: 'Video Protection',
-                                          icon: LucideIcons.video,
-                                          active: app.videoCallProtected,
-                                          onTap: () {
-                                            ref.read(protectedAppsProvider.notifier).toggleVideoCall(app.packageName);
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          if (!isLast) const Divider(height: 0.5, indent: 64),
-                        ],
-                      );
-                    }),
+                    children: [
+                      Icon(LucideIcons.smartphone, size: 48, color: cs.onSurfaceVariant),
+                      const SizedBox(height: 14),
+                      Text(
+                        'No supported apps found.',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
-                ).animate().fadeIn(duration: 350.ms),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildTypeToggle({
-    required BuildContext context,
-    required String label,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    final activeColor = active ? Colors.green : cs.onSurfaceVariant;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? Colors.green.withValues(alpha: 0.1) : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active ? Colors.green.withValues(alpha: 0.2) : cs.outlineVariant,
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: activeColor),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: activeColor,
+                ),
               ),
-            ),
+            if (apps.isNotEmpty)
+              SliverToBoxAdapter(
+                child: PremiumPanel(
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < apps.length; index++) ...[
+                        _ProtectedAppRow(
+                          app: apps[index],
+                          onToggleEnabled: () => ref.read(protectedAppsProvider.notifier).toggleApp(apps[index].packageName),
+                          onToggleVoice: () => ref.read(protectedAppsProvider.notifier).toggleVoiceCall(apps[index].packageName),
+                          onToggleVideo: () => ref.read(protectedAppsProvider.notifier).toggleVideoCall(apps[index].packageName),
+                        ),
+                        if (index != apps.length - 1)
+                          Divider(color: cs.outlineVariant.withValues(alpha: 0.75), height: 28),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
       ),
     );
   }
+}
 
-  void _showInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Protected Apps'),
-        content: const Text(
-          'Enable protection for supported apps. Gentleman will monitor for voice and video call interactions and require you to hold the call button before proceeding.',
+class _ProtectedAppRow extends StatelessWidget {
+  final ProtectedApp app;
+  final VoidCallback onToggleEnabled;
+  final VoidCallback onToggleVoice;
+  final VoidCallback onToggleVideo;
+
+  const _ProtectedAppRow({
+    required this.app,
+    required this.onToggleEnabled,
+    required this.onToggleVoice,
+    required this.onToggleVideo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = AppIcons.colorForPackage(app.packageName);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(AppIcons.iconForPackage(app.packageName), color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(app.displayName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    app.packageName,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(value: app.isEnabled, onChanged: (_) => onToggleEnabled()),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Got it')),
-        ],
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _ModeChip(
+                label: 'Voice calls',
+                icon: LucideIcons.phone,
+                active: app.voiceCallProtected,
+                activeColor: AppColors.success,
+                onTap: app.isEnabled ? onToggleVoice : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ModeChip(
+                label: 'Video calls',
+                icon: LucideIcons.video,
+                active: app.videoCallProtected,
+                activeColor: AppColors.info,
+                onTap: app.isEnabled ? onToggleVideo : null,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool active;
+  final Color activeColor;
+  final VoidCallback? onTap;
+
+  const _ModeChip({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: active ? activeColor.withValues(alpha: 0.12) : cs.surface.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: active ? activeColor.withValues(alpha: 0.24) : cs.outlineVariant.withValues(alpha: 0.8),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: active ? activeColor : cs.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: active ? activeColor : cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Icon(
+              active ? LucideIcons.check : LucideIcons.minus,
+              size: 14,
+              color: active ? activeColor : cs.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }

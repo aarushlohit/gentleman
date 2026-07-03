@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../../../core/services/permission_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/premium_widgets.dart';
 
 class PermissionsPage extends ConsumerStatefulWidget {
   const PermissionsPage({super.key});
@@ -36,174 +38,202 @@ class _PermissionsPageState extends ConsumerState<PermissionsPage> with WidgetsB
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final permissions = ref.watch(permissionProvider);
+    final readinessCount = [
+      permissions.accessibilityEnabled,
+      permissions.overlayEnabled,
+      permissions.batteryOptimizationDisabled,
+    ].where((value) => value).length;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        title: const Text('Permissions'),
-        elevation: 0,
-        backgroundColor: cs.surface,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        physics: const BouncingScrollPhysics(),
-        children: [
-          // Apple Group 1: All System permissions in a single card
-          Card(
-            child: Column(
-              children: [
-                _buildApplePermissionTile(
-                  context: context,
-                  icon: LucideIcons.eye,
-                  iconColor: Colors.blue,
-                  title: 'Accessibility Service',
-                  description: 'Used to monitor call click events in WhatsApp and Instagram to prevent accidental triggers.',
-                  status: permissions.accessibilityEnabled,
-                  onTap: permissions.isLoading
-                      ? null
-                      : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
-                ),
-                const Divider(height: 0.5, indent: 56),
-                _buildApplePermissionTile(
-                  context: context,
-                  icon: LucideIcons.layers,
-                  iconColor: Colors.purple,
-                  title: 'Overlay Permission',
-                  description: 'Allows Gentleman to show the "Hold to Confirm" dialogue interface over WhatsApp or Instagram.',
-                  status: permissions.overlayEnabled,
-                  onTap: permissions.isLoading
-                      ? null
-                      : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
-                ),
-                const Divider(height: 0.5, indent: 56),
-                _buildApplePermissionTile(
-                  context: context,
-                  icon: LucideIcons.batteryFull,
-                  iconColor: Colors.green,
-                  title: 'Battery Optimization',
-                  description: 'Allow background activity to guarantee the shielding engine is active when call buttons are clicked.',
-                  status: permissions.batteryOptimizationDisabled,
-                  onTap: permissions.isLoading
-                      ? null
-                      : () => ref.read(permissionProvider.notifier).openBatterySettings(),
+      backgroundColor: Colors.transparent,
+      body: PremiumBackground(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              title: const Text('Permissions'),
+              actions: [
+                IconButton(
+                  onPressed: permissions.isLoading ? null : () => ref.read(permissionProvider.notifier).refresh(),
+                  icon: const Icon(LucideIcons.refreshCw),
                 ),
               ],
             ),
-          ).animate().fadeIn(duration: 350.ms),
-
-          const SizedBox(height: 24),
-
-          // Apple Group 2: Privacy Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+            SliverToBoxAdapter(
+              child: PremiumPanel(
+                margin: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PremiumPill(
+                      label: '$readinessCount of 3 system requirements ready',
+                      color: readinessCount == 3 ? AppColors.success : AppColors.warning,
+                      icon: readinessCount == 3 ? LucideIcons.badgeCheck : LucideIcons.alertTriangle,
                     ),
-                    child: Icon(LucideIcons.shield, color: cs.primary, size: 20),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Privacy First Design',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'All configurations, names, and logs stay strictly on your local storage. Gentleman does not possess network permissions or use tracking code.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 18),
+                    Text(
+                      'Gentleman only feels invisible when Android gives it the right access at the right time.',
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 34, height: 0.98),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ).animate().fadeIn(duration: 350.ms, delay: 100.ms),
-        ],
+            SliverToBoxAdapter(
+              child: PremiumPanel(
+                child: Column(
+                  children: [
+                    _PermissionTile(
+                      title: 'Accessibility service',
+                      description: 'Reads supported call button interactions before the remote app can commit to a call.',
+                      icon: LucideIcons.eye,
+                      accent: AppColors.info,
+                      enabled: permissions.accessibilityEnabled,
+                      onTap: permissions.accessibilityEnabled || permissions.isLoading
+                          ? null
+                          : () => ref.read(permissionProvider.notifier).openAccessibilitySettings(),
+                    ),
+                    Divider(color: cs.outlineVariant.withValues(alpha: 0.75), height: 28),
+                    _PermissionTile(
+                      title: 'Overlay permission',
+                      description: 'Lets the confirmation shield appear above WhatsApp and Instagram without breaking flow.',
+                      icon: LucideIcons.layers,
+                      accent: cs.primary,
+                      enabled: permissions.overlayEnabled,
+                      onTap: permissions.overlayEnabled || permissions.isLoading
+                          ? null
+                          : () => ref.read(permissionProvider.notifier).openOverlaySettings(),
+                    ),
+                    Divider(color: cs.outlineVariant.withValues(alpha: 0.75), height: 28),
+                    _PermissionTile(
+                      title: 'Battery optimization bypass',
+                      description: 'Prevents Android from quietly freezing the service when the phone decides to clean house.',
+                      icon: LucideIcons.batteryCharging,
+                      accent: AppColors.success,
+                      enabled: permissions.batteryOptimizationDisabled,
+                      onTap: permissions.batteryOptimizationDisabled || permissions.isLoading
+                          ? null
+                          : () => ref.read(permissionProvider.notifier).openBatterySettings(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: PremiumSectionTitle(
+                eyebrow: 'Privacy',
+                title: 'Local-first by design',
+                subtitle: 'Protection logic, rule configuration, and event history remain on-device.',
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: PremiumPanel(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(LucideIcons.shield, color: cs.primary),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'Gentleman does not need network tracking or cloud storage to prevent accidental calls. The product works best when it stays personal and local.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildApplePermissionTile({
-    required BuildContext context,
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String description,
-    required bool status,
-    required VoidCallback? onTap,
-  }) {
+class _PermissionTile extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color accent;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _PermissionTile({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.accent,
+    required this.enabled,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final activeColor = status ? Colors.green : Colors.orange;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: iconColor, size: 18),
-      ),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
-              color: activeColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: Text(
-              status ? 'Active' : 'Setup Required',
-              style: TextStyle(
-                color: activeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    PremiumPill(
+                      label: enabled ? 'Ready' : 'Setup',
+                      color: enabled ? AppColors.success : AppColors.warning,
+                      icon: enabled ? LucideIcons.check : LucideIcons.chevronRight,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 6.0),
-        child: Text(
-          description,
-          style: TextStyle(
-            fontSize: 12,
-            color: cs.onSurfaceVariant,
-            height: 1.4,
-          ),
-        ),
-      ),
-      trailing: status
-          ? null
-          : Icon(
-              LucideIcons.chevronRight,
-              color: cs.onSurfaceVariant,
-              size: 16,
-            ),
-      onTap: status ? null : onTap,
     );
   }
 }

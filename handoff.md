@@ -1,117 +1,44 @@
-# Gentleman — Handoff Document
+# Gentleman App — Handoff Document
 
-**Last updated:** 2026-07-02  
-**Status:** ✅ Feature-complete
+This document outlines the current state of the Gentleman App, the newly implemented architecture, and documents the major technical hurdles (struggles) overcome during this session. It serves as a guide for future development.
 
----
-
-## What the app does
-
-Gentleman is a privacy-first Android app that prevents accidental voice and
-video calls in WhatsApp and Instagram. When a user taps a call button inside a
-monitored app, Gentleman intercepts the event via the Android Accessibility
-Service and shows a full-screen "Hold to Confirm" overlay. The call only proceeds
-if the user holds the overlay for the configured duration (default 1 000 ms).
-All data stays on-device — no network, no accounts, no tracking.
+## 🚀 Current State
+- **Flutter UI**: The Flutter dashboard, settings, statistics, protected apps, and permissions surfaces have been fully redesigned into a warmer, more premium visual system with atmospheric backgrounds, glassmorphism-style panels, stronger typography, and a more intentional navigation shell.
+- **Confirmation Shield Overlay**: A horizontal progress bar overlay with haptic feedback successfully intercepts outgoing VoIP calls (WhatsApp, Instagram).
+- **Absolute Instant-Abort Flow**: The system currently operates on an "Instant Abort & Bypass" architecture. Tapping a call button instantly aborts the action to prevent any VoIP handshake, ensuring the recipient's phone never rings accidentally. The user must hold the overlay to 100% to unlock a 8-second bypass window, then tap the call button a second time to proceed.
 
 ---
 
-## Architecture
+## 🧗 Key Struggles & Technical Challenges
 
-| Layer | Technology |
-|-------|-----------|
-| UI | Flutter (Dart), Riverpod, GoRouter, Material 3 |
-| Persistence | Hive (local NoSQL) — `settings`, `statistics`, `rules` boxes |
-| State | `StateNotifier` providers for settings, statistics, permissions, protected apps |
-| Native bridge | Single `MethodChannel` (`com.gentleman/protection`) |
-| Android monitoring | `AccessibilityMonitorService` (Kotlin) |
-| Android overlay | `OverlayService` (Kotlin foreground service) |
+### 1. Android Accessibility Service Quirks & Silent Failures
+**The Struggle**: During rapid development and deployment (`flutter run`), the app would often suddenly stop working. The accessibility service would seemingly ignore all clicks.
+**The Cause**: Android automatically disables accessibility services as a security measure whenever an app is force-stopped or re-installed.
+**The Solution**: We had to constantly monitor and force-enable the service via ADB after every build:
+`adb shell settings put secure enabled_accessibility_services org.kde.kdeconnect_tp/...:com.gentleman.app/com.gentleman.app.AccessibilityMonitorService && adb shell settings put secure accessibility_enabled 1`
 
----
+### 2. The Illusion of `GLOBAL_ACTION_BACK`
+**The Struggle**: We initially tried to block calls by simply triggering the Android 'Back' button (`GLOBAL_ACTION_BACK`) when a call button was tapped.
+**The Cause**: For VoIP apps like WhatsApp and Instagram, pressing 'Back' does not terminate an outgoing call; it merely minimizes the call screen into picture-in-picture or background mode while continuing to dial the recipient.
+**The Solution**: We had to implement an aggressive decline polling loop. When a call is intercepted, the service scans the active window every 80 milliseconds for up to 1.2 seconds, searching for buttons with descriptions matching `decline`, `end_call`, `hangup`, or `cancel`, and programmatically clicks them to forcefully terminate the connection.
 
-## Screens
+### 3. The "Black Box" of Third-Party View Hierarchies
+**The Struggle**: Finding the correct UI node to click for hanging up was difficult because third-party app layouts change frequently and differ across Android versions.
+**The Solution**: We built a custom layout dumper (`dumpNodeHierarchy()`) within `AccessibilityMonitorService.kt` to recursively print the entire view tree of the active screen to Logcat. This allowed us to reverse-engineer the structure of the WhatsApp call screen and target the correct decline button safely.
 
-| Screen | Route | Navigation |
-|--------|-------|-----------|
-| Dashboard | `/` | Tab 0 (bottom nav) |
-| Statistics | `/statistics` | Tab 1 |
-| Protected Apps | `/protected-apps` | Tab 2 |
-| Permissions | `/permissions` | Tab 3 |
-| Settings | `/settings` | Pushed (no bottom nav) |
-| About | `/about` | Pushed (no bottom nav) |
+### 4. WindowManager Leaks and Duplicate Overlays
+**The Struggle**: Occasionally, tapping a call button would crash the app with a `WindowManager$BadTokenException` or visual glitches where multiple overlays stacked on top of each other.
+**The Cause**: Android accessibility events can fire multiple `TYPE_VIEW_CLICKED` events for a single physical tap (e.g., the text node and its parent container both report a click). This spawned multiple `OverlayService` intents simultaneously.
+**The Solution**: We implemented strict state guarding in `OverlayService.kt`. We now check `if (overlayView != null) return` before inflating and attaching the view to the WindowManager.
 
----
-
-## Completed features (as of this handoff)
-
-- [x] Bottom `NavigationBar` with `StatefulShellRoute` (tabs persist state)
-- [x] Dashboard Enable All / Disable All button wired to `ProtectedAppsNotifier`
-- [x] Statistics page — full scrollable event history, coloured result badges, time-ago labels
-- [x] Permissions page — live battery optimisation status via `PowerManager`
-- [x] Settings — real CSV export via `share_plus`
-- [x] About — Open Source Notices opens `showLicensePage()`
-- [x] `OverlayService` — `startForeground()` with silent notification (Android 8+)
-- [x] `OverlayService` — uses user-configured hold duration (not hardcoded 1 000 ms)
-- [x] `MainActivity` — `BroadcastReceiver` refs stored and unregistered in `onDestroy`
-- [x] Hold duration propagated Flutter → Android via `setHoldDurationMs` MethodChannel
-- [x] Widget smoke test — stable with Hive temp dir, path_provider stub, provider overrides
-- [x] `flutter analyze` exits 0 — no warnings or infos
+### 5. Race Conditions in Abort vs. Confirm Flows
+**The Struggle**: Trying to allow the call to ring in the background *while* showing the confirmation overlay proved mathematically unsafe. If the user held the overlay to 100%, but the call screen took a moment too long to load, the delayed abort loop would trigger and hang up the call anyway. Conversely, if we waited too long to abort on an accidental tap, the recipient's phone would ring for half a second.
+**The Solution**: We pivoted to the **Instant-Abort & Second Tap architecture**. The first tap is always killed instantly (zero chance of ringing). The user unlocks the shield by holding to 100%, and then taps again to actually place the call. This is the only 100% fail-safe method for true accidental call prevention.
 
 ---
 
-## Known limitations / future work
-
-- **More monitored apps:** Only WhatsApp and Instagram are supported. Additional
-  apps can be added by registering package names in `HiveService.seedDefaultRules`
-  and updating the accessibility service heuristics in `AccessibilityMonitorService`.
-- **Per-app statistics:** The stats page shows aggregate counts per app. A
-  per-day bar chart or sparkline would improve clarity.
-- **In-app icon fetching:** App icons are currently rendered from a static lookup
-  table. A real icon from the device's PackageManager would require a platform
-  channel call.
-- **Notification tap action:** The OverlayService foreground notification is
-  silent and has no tap action. Adding a PendingIntent to launch MainActivity
-  would improve UX.
-- **Release signing:** `signingConfig = signingConfigs.getByName("debug")` in
-  `build.gradle.kts` should be replaced with a real release key before publishing.
-- **Upgrade dependencies:** 49 packages have newer versions constrained by the
-  current dependency graph. Run `flutter pub upgrade --major-versions` when ready.
-
----
-
-## Running the project
-
-```bash
-# Install dependencies
-flutter pub get
-
-# Run analyzer (should exit 0)
-flutter analyze
-
-# Run tests (should exit 0)
-flutter test
-
-# Run on a connected Android device
-flutter run
-```
-
-Accessibility service and overlay permission must be granted manually on first
-launch. The Permissions screen provides direct links to the system settings.
-
----
-
-## Git history (feature commits)
-
-```
-feat(about): wire Open Source Notices tile to showLicensePage
-feat(settings): implement real CSV export via share_plus
-feat(android): propagate hold duration setting to OverlayService
-fix(android): unregister BroadcastReceivers in onDestroy to prevent leak
-fix(android): add required foreground notification to OverlayService
-feat(permissions): surface real battery optimisation status
-feat(statistics): add full event history list with result badges
-feat(nav): add bottom NavigationBar with StatefulShellRoute
-fix(dashboard): wire Enable All / Disable All button to provider
-fix(analyzer): resolve sort_child_properties_last warnings in settings page
-fix(test): stabilise widget smoke test
-```
+## 🔜 Next Steps / Future Enhancements
+- Monitor the effectiveness of the second-tap bypass architecture with real users.
+- Extend the same premium visual language to onboarding, splash, and about screens so the product feels consistent end-to-end.
+- Consider exploring `OverlayService` animations (e.g., a fade-out transition when dismissing) so the native interception layer matches the polish of the Flutter shell.
+- Explore drawing transparent touch-interception overlays directly over the WhatsApp toolbar as an alternative to instant-aborting.

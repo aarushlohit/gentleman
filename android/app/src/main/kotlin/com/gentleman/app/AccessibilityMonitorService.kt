@@ -5,8 +5,17 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.FrameLayout
 
 class AccessibilityMonitorService : AccessibilityService() {
     companion object {
@@ -30,6 +39,77 @@ class AccessibilityMonitorService : AccessibilityService() {
     )
 
     private var decisionReceiver: BroadcastReceiver? = null
+    
+    // Blocker overlays targeting physical call button coordinates
+    private val activeBlockers = mutableListOf<Pair<View, AccessibilityNodeInfo>>()
+    private var blockersEnabled = true
+    private val blockersHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingCallType = ""
+
+    private var currentPackageName = ""
+    private var currentClassName = ""
+
+    private fun hasMessageInput(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        try {
+            val resId = node.viewIdResourceName?.lowercase() ?: ""
+            val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+            val text = node.text?.toString()?.lowercase() ?: ""
+
+            // Exclude search bars
+            if (resId.contains("search") || desc.contains("search") || text.contains("search")) {
+                return false
+            }
+
+            // Message box matches
+            if (resId.contains("entry") || resId.contains("message_box") || resId.contains("input")) {
+                return true
+            }
+            if (desc.contains("message") || desc.contains("type a message")) {
+                return true
+            }
+            if (text.contains("message") || text.contains("type a message")) {
+                return true
+            }
+
+            for (i in 0 until node.childCount) {
+                if (hasMessageInput(node.getChild(i))) return true
+            }
+        } catch (_: Exception) {}
+        return false
+    }
+
+    private fun isChatScreen(pkg: String, className: String, root: AccessibilityNodeInfo?): Boolean {
+        android.util.Log.d("Gentleman", "Checking isChatScreen for pkg = $pkg, class = $className")
+        if (className.contains("HomeActivity", ignoreCase = true) || 
+            className.contains("MainActivity", ignoreCase = true) || 
+            className.contains("TabActivity", ignoreCase = true)) {
+            return false
+        }
+        val hasInput = hasMessageInput(root)
+        android.util.Log.d("Gentleman", "isChatScreen check hasMessageInput = $hasInput")
+        return hasInput
+    }
+
+    private val scanRunnable = Runnable {
+        if (!blockersEnabled) {
+            android.util.Log.d("Gentleman", "scanRunnable: blockers are currently disabled (unlock cooldown)")
+            return@Runnable
+        }
+        val root = rootInActiveWindow
+        android.util.Log.d("Gentleman", "scanRunnable running: package = $currentPackageName, class = $currentClassName, hasRoot = ${root != null}")
+        if (!isChatScreen(currentPackageName, currentClassName, root)) {
+            android.util.Log.d("Gentleman", "scanRunnable: NOT a chat screen, clearing blockers.")
+            updateBlockerOverlay(emptyList())
+            return@Runnable
+        }
+        val callButtons = mutableListOf<Pair<AccessibilityNodeInfo, String>>()
+        root?.let { r ->
+            findCallButtons(r, callButtons)
+        }
+        android.util.Log.d("Gentleman", "scanRunnable: found ${callButtons.size} call buttons")
+        updateBlockerOverlay(callButtons)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -40,12 +120,46 @@ class AccessibilityMonitorService : AccessibilityService() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent == null) return
                 val result = intent.getStringExtra("result")
-                if (result == "blocked") {
-                    // Instantly simulate Back button twice to abort/close the outgoing call screen
-                    performGlobalAction(GLOBAL_ACTION_BACK)
-                    handler.postDelayed({
-                        performGlobalAction(GLOBAL_ACTION_BACK)
-                    }, 100)
+                android.util.Log.d("Gentleman", "Received decision result: $result")
+                
+                if (result == "allowed") {
+                    // Temporarily disable blockers to allow programmatic click to pass through
+                    blockersEnabled = false
+                    removeAllBlockers()
+                    
+                    // Poll rootInActiveWindow to click the call button as soon as the overlay window fully dismisses
+                    var attempts = 0
+                    val runClick = object : Runnable {
+                        override fun run() {
+                            val root = rootInActiveWindow
+                            val freshButtons = mutableListOf<Pair<AccessibilityNodeInfo, String>>()
+                            findCallButtons(root, freshButtons)
+                            
+                            val target = freshButtons.find { it.second == pendingCallType }?.first
+                            if (target != null) {
+                                android.util.Log.d("Gentleman", "Found fresh call node on attempt $attempts, clicking!")
+                                clickNodeRecursively(target)
+                                
+                                // Re-enable blockers after 8 seconds
+                                blockersHandler.removeCallbacksAndMessages(null)
+                                blockersHandler.postDelayed({
+                                    blockersEnabled = true
+                                }, 8000)
+                                return
+                            }
+                            
+                            attempts++
+                            if (attempts < 10) {
+                                handler.postDelayed(this, 80)
+                            } else {
+                                android.util.Log.e("Gentleman", "Failed to find fresh call node after 10 attempts.")
+                                blockersEnabled = true
+                            }
+                        }
+                    }
+                    handler.postDelayed(runClick, 50)
+                } else if (result == "blocked") {
+                    android.util.Log.d("Gentleman", "Call blocked by user - no action taken.")
                 }
             }
         }
@@ -60,6 +174,8 @@ class AccessibilityMonitorService : AccessibilityService() {
     override fun onDestroy() {
         sarcasmRunnable?.let { handler.removeCallbacks(it) }
         decisionReceiver?.let { unregisterReceiver(it) }
+        blockersHandler.removeCallbacksAndMessages(null)
+        removeAllBlockers()
         super.onDestroy()
     }
 
@@ -81,11 +197,9 @@ class AccessibilityMonitorService : AccessibilityService() {
         sarcasmRunnable = object : Runnable {
             override fun run() {
                 sendSarcasmNotification()
-                // Run every 1 hour (3600000 ms)
                 handler.postDelayed(this, 3600000L)
             }
         }
-        // Start the first one after 1 hour
         handler.postDelayed(sarcasmRunnable!!, 3600000L)
     }
 
@@ -106,92 +220,208 @@ class AccessibilityMonitorService : AccessibilityService() {
         if (event == null) return
 
         val type = event.eventType
-        val pkg = event.packageName?.toString() ?: return
+        val pkg = event.packageName?.toString() ?: ""
 
-        // We only care about WhatsApp and Instagram!
-        if (pkg != "com.whatsapp" && pkg != "com.instagram.android") return
+        if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            currentPackageName = pkg
+            currentClassName = event.className?.toString() ?: ""
+            android.util.Log.d("Gentleman", "Active screen changed: package = $currentPackageName, class = $currentClassName")
+        }
 
-        // Intercept view clicked events representing call button taps
-        if (type == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val node = event.source ?: return
-            val interaction = isCallButtonClicked(node) ?: return // Not a call button click
+        // Print debug info for every window content change or state change to help solve layout bugs
+        if (pkg == "com.whatsapp" || pkg == "com.instagram.android") {
+            android.util.Log.d("Gentleman", "onAccessibilityEvent: type = ${AccessibilityEvent.eventTypeToString(type)}, pkg = $pkg, class = ${event.className}")
+        }
 
-            // Before drawing the overlay, make sure we have overlay drawing permission!
-            if (!android.provider.Settings.canDrawOverlays(this)) return
+        if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Debounce scanning to avoid blocking the main thread during typing/scrolling
+            handler.removeCallbacks(scanRunnable)
+            handler.postDelayed(scanRunnable, 50)
+        }
+    }
 
-            // Start the overlay to confirm the interaction, and broadcast the detection event.
-            try {
-                val prefs = getSharedPreferences("gentleman_settings", android.content.Context.MODE_PRIVATE)
-                val holdMs = prefs.getInt("holdDurationMs", 1000)
-                val svcIntent = Intent(this, OverlayService::class.java)
-                svcIntent.putExtra(OverlayService.EXTRA_PACKAGE, pkg)
-                svcIntent.putExtra(OverlayService.EXTRA_INTERACTION, interaction)
-                svcIntent.putExtra(OverlayService.EXTRA_HOLD_DURATION_MS, holdMs)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    startForegroundService(svcIntent)
-                } else {
-                    startService(svcIntent)
-                }
-            } catch (_: Exception) {
-                // ignore service launch failures
+    private fun findCallButtons(node: AccessibilityNodeInfo?, list: MutableList<Pair<AccessibilityNodeInfo, String>>) {
+        if (node == null) return
+        val type = isCallButtonClicked(node)
+        if (type != null) {
+            // Traverse up to find the clickable ancestor if this node isn't directly clickable
+            var clickableNode = node
+            while (clickableNode != null && !clickableNode.isClickable) {
+                clickableNode = clickableNode.parent
             }
-
-            val intent = Intent(ACTION_PROTECTION_EVENT)
-            intent.putExtra(EXTRA_PACKAGE, pkg)
-            intent.putExtra(EXTRA_INTERACTION, interaction)
-            sendBroadcast(intent)
+            if (clickableNode != null) {
+                // Check if we already have it in the list to avoid duplicate bounds overlay
+                if (list.none { it.first == clickableNode }) {
+                    list.add(Pair(clickableNode, type))
+                }
+                return
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findCallButtons(child, list)
         }
     }
 
     private fun isCallButtonClicked(node: AccessibilityNodeInfo): String? {
-        val resId = node.viewIdResourceName?.lowercase() ?: ""
         val desc = node.contentDescription?.toString()?.lowercase() ?: ""
         val text = node.text?.toString()?.lowercase() ?: ""
 
-        // Exclude text inputs, search fields, chat list items, status updates
-        if (resId.contains("search") || resId.contains("input") || resId.contains("edit") || resId.contains("entry") || resId.contains("message")) {
-            return null
-        }
-        if (desc.contains("search") || desc.contains("message") || desc.contains("type") || desc.contains("text")) {
-            return null
-        }
+        // EXTREMELY STRICT MATCHING FOR HEADER BUTTONS ONLY:
+        // Must have description containing exactly voice/video call and MUST have empty/null text!
+        if (text.isNotEmpty()) return null
 
-        // Match video call
-        if (resId.contains("video_call") || resId.contains("video") || 
-            desc.contains("video call") || desc.contains("start video") ||
-            text.contains("video call") || text.contains("video")) {
-            return "video"
-        }
+        val isVideo = desc == "video call" || desc == "start video call"
+        val isVoice = desc == "voice call" || desc == "start voice call" || desc == "audio call" || desc == "start audio call"
 
-        // Match voice call
-        if (resId.contains("menu_item_call") || resId.contains("voice_call") || resId.contains("audio_call") ||
-            desc.contains("voice call") || desc.contains("start voice") || desc.contains("audio call") ||
-            desc.contains("start call") || desc.contains("make a call") || desc.contains("call") ||
-            text.contains("voice call") || text.contains("audio call") || text.contains("call")) {
-            return "voice"
-        }
-
-        // Traversal of children (since call icons are often inside a parent button layout)
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            val result = isCallButtonClicked(child)
-            if (result != null) return result
-        }
-
-        // Check if any parent indicates it is a call button container
-        var parent = node.parent
-        while (parent != null) {
-            val parentResId = parent.viewIdResourceName?.lowercase() ?: ""
-            if (parentResId.contains("search") || parentResId.contains("input") || parentResId.contains("edit")) {
-                return null
-            }
-            if (parentResId.contains("video_call") || parentResId.contains("menu_item_call") || parentResId.contains("audio_call")) {
-                return if (parentResId.contains("video")) "video" else "voice"
-            }
-            parent = parent.parent
-        }
+        if (isVideo) return "video"
+        if (isVoice) return "voice"
 
         return null
+    }
+
+    private fun clickNodeRecursively(node: AccessibilityNodeInfo?): Boolean {
+        var temp = node
+        while (temp != null) {
+            if (temp.isClickable) {
+                val clicked = temp.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (clicked) {
+                    android.util.Log.d("Gentleman", "Successfully clicked call node: ${temp.viewIdResourceName}")
+                    return true
+                }
+            }
+            temp = temp.parent
+        }
+        return false
+    }
+
+    @Synchronized
+    private fun updateBlockerOverlay(buttons: List<Pair<AccessibilityNodeInfo, String>>) {
+        if (!blockersEnabled) {
+            removeAllBlockers()
+            return
+        }
+
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        
+        // Remove old blockers to prevent duplicates and follow screen changes/rotations
+        removeAllBlockers()
+
+        val screenHeight = resources.displayMetrics.heightPixels
+        for (pair in buttons) {
+            val node = pair.first
+            val type = pair.second
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+
+            if (rect.isEmpty || rect.left < 0 || rect.top < 0) continue
+
+            // Bulletproof coordinate filter: call buttons in header are ALWAYS between y = 60 and y = 520 pixels
+            if (rect.top < 60 || rect.bottom > 520) {
+                android.util.Log.d("Gentleman", "Ignoring matched node outside header bounds (y = 60 to 520): $rect")
+                continue
+            }
+
+            try {
+                val blocker = createBlockerView(rect, node, type)
+                val params = WindowManager.LayoutParams(
+                    rect.width(),
+                    rect.height(),
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    else
+                        @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    PixelFormat.TRANSLUCENT
+                )
+                params.gravity = Gravity.TOP or Gravity.LEFT
+                params.x = rect.left
+                params.y = rect.top
+
+                wm.addView(blocker, params)
+                activeBlockers.add(Pair(blocker, node))
+                android.util.Log.d("Gentleman", "Added blocker view at: $rect for type: $type")
+            } catch (e: Exception) {
+                android.util.Log.e("Gentleman", "Failed to add blocker view", e)
+            }
+        }
+    }
+
+    @Synchronized
+    private fun removeAllBlockers() {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        for (pair in activeBlockers) {
+            try {
+                wm.removeView(pair.first)
+            } catch (_: Exception) {}
+        }
+        activeBlockers.clear()
+    }
+
+    private fun createBlockerView(rect: Rect, targetNode: AccessibilityNodeInfo, type: String): View {
+        val context = this
+        val view = FrameLayout(context)
+
+        // Draw a small indicator badge (red dot inside a black ring - our app logo design)
+        val indicator = View(context)
+        val size = (18 * resources.displayMetrics.density).toInt()
+        val params = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+        indicator.layoutParams = params
+
+        val shape = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.parseColor("#FF3B30")) // red dot
+            setStroke((2 * resources.displayMetrics.density).toInt(), Color.BLACK) // black ring
+        }
+        indicator.background = shape
+        view.addView(indicator)
+
+        view.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                android.util.Log.d("Gentleman", "Blocker view touched! Rect: $rect, Type: $type")
+                pendingCallType = type
+                
+                if (!android.provider.Settings.canDrawOverlays(context)) {
+                    android.util.Log.d("Gentleman", "Cannot show overlay: overlay permission not granted!")
+                    return@setOnTouchListener true
+                }
+
+                try {
+                    val prefs = getSharedPreferences("gentleman_settings", android.content.Context.MODE_PRIVATE)
+                    val holdMs = prefs.getInt("holdDurationMs", 1000)
+                    val svcIntent = Intent(context, OverlayService::class.java).apply {
+                        putExtra(OverlayService.EXTRA_PACKAGE, "com.whatsapp")
+                        putExtra(OverlayService.EXTRA_INTERACTION, type)
+                        putExtra(OverlayService.EXTRA_HOLD_DURATION_MS, holdMs)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(svcIntent)
+                    } else {
+                        startService(svcIntent)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("Gentleman", "Failed to start OverlayService from blocker", e)
+                }
+            }
+            true
+        }
+        return view
+    }
+
+    private fun dumpNodeHierarchy(node: AccessibilityNodeInfo?, depth: Int) {
+        if (node == null) return
+        try {
+            val indent = " ".repeat(depth * 2)
+            val resId = node.viewIdResourceName ?: "null"
+            val desc = node.contentDescription ?: "null"
+            val text = node.text ?: "null"
+            val clickable = node.isClickable
+            android.util.Log.d("GentlemanDump", "$indent[$depth] ResId: $resId, Desc: $desc, Text: $text, Clickable: $clickable")
+            
+            for (i in 0 until node.childCount) {
+                dumpNodeHierarchy(node.getChild(i), depth + 1)
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onInterrupt() {}
